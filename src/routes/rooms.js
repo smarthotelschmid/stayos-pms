@@ -1,0 +1,67 @@
+const express = require('express');
+const router = express.Router();
+const Room = require('../models/Room');
+
+// ── GET /api/rooms ─────────────────────────────────────
+// Alle Zimmer eines Hotels abrufen
+// Später wird tenantId aus dem Login-Token gelesen
+// Jetzt noch als Query-Parameter für den Test
+router.get('/', async (req, res) => {
+  try {
+    const rooms = await Room.find();
+    res.json({ 
+      success: true, 
+      count: rooms.length,
+      data: rooms 
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ── POST /api/rooms ────────────────────────────────────
+// Neues Zimmer anlegen
+router.post('/', async (req, res) => {
+  try {
+    const room = await Room.create(req.body);
+    res.status(201).json({ 
+      success: true, 
+      data: room 
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// ── GET /api/rooms/:id ─────────────────────────────────
+// Ein einzelnes Zimmer abrufen
+router.get('/:id', async (req, res) => {
+  try {
+    const room = await Room.findById(req.params.id);
+    if (!room) {
+      return res.status(404).json({ success: false, error: 'Zimmer nicht gefunden' });
+    }
+    res.json({ success: true, data: room });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ── PUT /api/rooms/:id ─────────────────────────────────
+// Zimmer aktualisieren
+router.put('/:id', async (req, res) => {
+  try {
+    const room = await Room.findByIdAndUpdate(req.params.id, req.body, { 
+      new: true,        // gibt das aktualisierte Dokument zurück
+      runValidators: true // prüft ob die neuen Daten dem Schema entsprechen
+    });
+    if (!room) {
+      return res.status(404).json({ success: false, error: 'Zimmer nicht gefunden' });
+    }
+    res.json({ success: true, data: room });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+module.exports = router;
