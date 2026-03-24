@@ -17,13 +17,20 @@ const bookingSchema = new mongoose.Schema({
   // Woher kommt die Buchung?
   source: { 
     type: String, 
-    enum: ['direct', 'booking.com', 'airbnb', 'expedia', 'manual'],
+    enum: ['direct', 'booking.com', 'airbnb', 'expedia', 'manual', 'booking'],
     required: true 
   },
   
   // Die externe ID von Booking.com oder Airbnb
   // Damit können wir Stornierungen vom OTA zuordnen
   externalId: { type: String },
+
+  // Gruppen-ID für Multi-Zimmer Buchungen
+  // z.B. GRP-2026-0001 — alle Zimmer einer Reisegruppe
+  groupId: { type: String },
+  
+  // Rate Plan Referenz
+  ratePlanId: { type: mongoose.Schema.Types.ObjectId, ref: 'RatePlan' },
 
   // ── STATUS ────────────────────────────────────────────
   
