@@ -12,17 +12,19 @@ app.use(express.json());
 const roomsRouter = require('./routes/rooms');
 const guestsRouter = require('./routes/guests');
 const bookingsRouter = require('./routes/bookings');
+const ratePlansRouter = require('./routes/rateplans');
 
 app.use('/api/rooms', roomsRouter);
 app.use('/api/guests', guestsRouter);
 app.use('/api/bookings', bookingsRouter);
+app.use('/api/rateplans', ratePlansRouter);
 
 // Test Route
 app.get('/', (req, res) => {
   res.json({ 
     status: 'ok', 
     message: 'STAYOS API läuft',
-    version: '1.0.0'
+    version: '1.1.0'
   });
 });
 
