@@ -10,7 +10,7 @@ router.get('/', async (req, res) => {
       // populate holt die echten Daten aus den verknüpften Collections
       // statt nur der ID sehen wir dann den ganzen Gast und das ganze Zimmer
       .populate('guestId', 'firstName lastName email phone')
-      .populate('roomId', 'number name type pricePerNight')
+      .populate('roomId', 'number name type pricePerNight floor maxGuests amenities')
       .sort({ checkIn: -1 }); // neueste zuerst
     res.json({ success: true, count: bookings.length, data: bookings });
   } catch (err) {
