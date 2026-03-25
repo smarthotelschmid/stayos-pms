@@ -22,16 +22,43 @@ router.get('/', async (req, res) => {
 // Neue Buchung anlegen
 router.post('/', async (req, res) => {
   try {
+    const { roomId, checkIn, checkOut, tenantId } = req.body;
+
+    // Verfügbarkeitsprüfung — doppelte Buchung verhindern
+    const conflict = await Booking.findOne({
+      tenantId,
+      roomId,
+      status: { $nin: ['cancelled', 'no-show'] },
+      $or: [
+        // Neue Buchung beginnt während bestehender Buchung
+        { checkIn: { $lt: new Date(checkOut) }, checkOut: { $gt: new Date(checkIn) } }
+      ]
+    });
+
+    if (conflict) {
+      return res.status(409).json({
+        success: false,
+        error: 'Zimmerkollision',
+        message: `Zimmer ist von ${new Date(conflict.checkIn).toLocaleDateString('de-AT')} bis ${new Date(conflict.checkOut).toLocaleDateString('de-AT')} bereits belegt (${conflict.bookingNumber})`,
+        conflict: {
+          bookingNumber: conflict.bookingNumber,
+          checkIn: conflict.checkIn,
+          checkOut: conflict.checkOut,
+          status: conflict.status
+        }
+      });
+    }
+
     // Buchungsnummer automatisch generieren: HTL-2026-0001
     const year = new Date().getFullYear();
     const count = await Booking.countDocuments();
     const bookingNumber = `HTL-${year}-${String(count + 1).padStart(4, '0')}`;
-    
+
     const booking = await Booking.create({
       ...req.body,
       bookingNumber
     });
-    
+
     res.status(201).json({ success: true, data: booking });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
