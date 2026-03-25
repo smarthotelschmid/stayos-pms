@@ -33,6 +33,32 @@ router.post('/', async (req, res) => {
   }
 });
 
+// ── GET /api/rooms/available ───────────────────────────
+// Freie Zimmer für einen Zeitraum zurückgeben
+router.get('/available', async (req, res) => {
+  try {
+    const { checkIn, checkOut, tenantId } = req.query;
+    if (!checkIn || !checkOut) {
+      return res.status(400).json({ success: false, error: 'checkIn und checkOut erforderlich' });
+    }
+    const Booking = require('../models/Booking');
+    // Alle belegten Zimmer im Zeitraum finden
+    const busyBookings = await Booking.find({
+      status: { $nin: ['cancelled', 'no-show'] },
+      checkIn: { $lt: new Date(checkOut) },
+      checkOut: { $gt: new Date(checkIn) }
+    }).select('roomId');
+    const busyRoomIds = busyBookings.map(b => b.roomId.toString());
+    // Alle Zimmer außer den belegten
+    const rooms = await Room.find({
+      _id: { $nin: busyRoomIds }
+    });
+    res.json({ success: true, count: rooms.length, data: rooms });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // ── GET /api/rooms/:id ─────────────────────────────────
 // Ein einzelnes Zimmer abrufen
 router.get('/:id', async (req, res) => {
