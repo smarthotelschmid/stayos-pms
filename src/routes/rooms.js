@@ -90,4 +90,23 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// ── PATCH /api/rooms/:id/housekeeping ──────────────────
+// Housekeeping Status aktualisieren
+router.patch('/:id/housekeeping', async (req, res) => {
+  try {
+    const { housekeepingStatus, housekeepingNote } = req.body;
+    const room = await Room.findByIdAndUpdate(
+      req.params.id,
+      { housekeepingStatus, housekeepingNote },
+      { new: true }
+    );
+    if (!room) {
+      return res.status(404).json({ success: false, error: 'Zimmer nicht gefunden' });
+    }
+    res.json({ success: true, data: room });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

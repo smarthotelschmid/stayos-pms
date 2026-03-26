@@ -35,6 +35,14 @@ const roomSchema = new mongoose.Schema({
   
   // Ausstattung als Liste z.B. ["WiFi", "Balkon", "Badewanne"]
   amenities: [String],
+
+   housekeepingStatus: { 
+    type: String, 
+    enum: ['dirty', 'in_progress', 'clean'], 
+    default: 'clean' 
+  },
+  housekeepingPriority: { type: Number, default: 0 },
+  housekeepingNote: { type: String },
   
   // Beschreibung für die Buchungsseite
   description: { type: String },
