@@ -13,11 +13,13 @@ const roomsRouter = require('./routes/rooms');
 const guestsRouter = require('./routes/guests');
 const bookingsRouter = require('./routes/bookings');
 const ratePlansRouter = require('./routes/rateplans');
+const settingsRouter = require('./routes/settings');
 
 app.use('/api/rooms', roomsRouter);
 app.use('/api/guests', guestsRouter);
 app.use('/api/bookings', bookingsRouter);
 app.use('/api/rateplans', ratePlansRouter);
+app.use('/api/settings', settingsRouter);
 
 // Test Route
 app.get('/', (req, res) => {
