@@ -14,12 +14,15 @@ const guestsRouter = require('./routes/guests');
 const bookingsRouter = require('./routes/bookings');
 const ratePlansRouter = require('./routes/rateplans');
 const settingsRouter = require('./routes/settings');
+const beds24Router = require('./routes/beds24');
+const { startSync } = require('./services/syncService');
 
 app.use('/api/rooms', roomsRouter);
 app.use('/api/guests', guestsRouter);
 app.use('/api/bookings', bookingsRouter);
 app.use('/api/rateplans', ratePlansRouter);
 app.use('/api/settings', settingsRouter);
+app.use('/api', beds24Router);
 
 // Test Route
 app.get('/', (req, res) => {
@@ -34,6 +37,7 @@ app.get('/', (req, res) => {
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
     console.log('✅ MongoDB verbunden');
+    startSync();
     app.listen(process.env.PORT, () => {
       console.log(`✅ Server läuft auf Port ${process.env.PORT}`);
     });

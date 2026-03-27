@@ -15,15 +15,25 @@ const bookingSchema = new mongoose.Schema({
   bookingNumber: { type: String, required: true, unique: true },
   
   // Woher kommt die Buchung?
-  source: { 
-    type: String, 
-    enum: ['direct', 'booking.com', 'airbnb', 'expedia', 'manual', 'booking'],
-    required: true 
+  source: {
+    type: String,
+    enum: ['direct', 'booking.com', 'airbnb', 'expedia', 'manual', 'booking', 'beds24'],
+    required: true
   },
-  
-  // Die externe ID von Booking.com oder Airbnb
+
+  // Die externe ID von Booking.com, Airbnb oder Beds24
   // Damit können wir Stornierungen vom OTA zuordnen
   externalId: { type: String },
+
+  // Beds24 spezifische Felder
+  beds24BookingId: { type: Number, index: true },
+  beds24RoomId: { type: Number },
+  beds24PropertyId: { type: Number },
+  guestName: { type: String },
+  channel: { type: String },
+  roomName: { type: String },
+  roomType: { type: String },
+  hasBalcony: { type: Boolean },
 
   // Gruppen-ID für Multi-Zimmer Buchungen
   // z.B. GRP-2026-0001 — alle Zimmer einer Reisegruppe
@@ -46,14 +56,14 @@ const bookingSchema = new mongoose.Schema({
   // ── GAST & ZIMMER ─────────────────────────────────────
   
   // Verweis auf den Gast in der guests Collection
-  guestId: { type: mongoose.Schema.Types.ObjectId, ref: 'Guest', required: true },
+  guestId: { type: mongoose.Schema.Types.ObjectId, ref: 'Guest' },
   
   // Anzahl der Personen
   adults:   { type: Number, default: 1 },
   children: { type: Number, default: 0 },
   
   // Verweis auf das Zimmer
-  roomId: { type: mongoose.Schema.Types.ObjectId, ref: 'Room', required: true },
+  roomId: { type: mongoose.Schema.Types.ObjectId, ref: 'Room' },
 
   // ── ZEITRAUM ──────────────────────────────────────────
   
