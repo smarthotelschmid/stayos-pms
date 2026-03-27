@@ -54,4 +54,30 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// ── DELETE /api/guests/:id ────────────────────────────
+router.delete('/:id', async (req, res) => {
+  try {
+    const guest = await Guest.findByIdAndDelete(req.params.id);
+    if (!guest) return res.status(404).json({ success: false, error: 'Gast nicht gefunden' });
+    res.json({ success: true, message: 'Gast gelöscht' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ── GET /api/guests/search?q= ────────────────────────
+router.get('/search', async (req, res) => {
+  try {
+    const q = req.query.q;
+    if (!q) return res.json({ success: true, count: 0, data: [] });
+    const regex = new RegExp(q, 'i');
+    const guests = await Guest.find({
+      $or: [{ firstName: regex }, { lastName: regex }, { email: regex }]
+    }).limit(20);
+    res.json({ success: true, count: guests.length, data: guests });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

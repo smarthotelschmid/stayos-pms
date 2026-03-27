@@ -1,6 +1,9 @@
 const Booking = require('../models/Booking');
+const Guest = require('../models/Guest');
 const beds24 = require('./beds24Service');
 const ROOM_MAPPING = require('./roomMapping');
+
+const FAKE_EMAIL_PATTERNS = ['@guest.booking.com', '@m.airbnb.com', '@airbnb.com', '@guest.expedia.com'];
 
 const SYNC_INTERVAL = 30 * 60 * 1000; // 30 Minuten
 const TENANT_ID = '507f1f77bcf86cd799439011';
@@ -74,11 +77,59 @@ async function syncBookings() {
         hasBalcony: mapped ? mapped.hasBalcony : false,
       };
 
+      // Gast upsert
+      let guestId = null;
+      if (b.firstName || b.lastName || b.email) {
+        const email = b.email || null;
+        const isFake = email ? FAKE_EMAIL_PATTERNS.some(p => email.toLowerCase().includes(p)) : false;
+        const guestData = {
+          tenantId: TENANT_ID,
+          firstName: b.firstName || '',
+          lastName: b.lastName || '',
+          email: email,
+          emailIsFake: isFake,
+          phone: b.phone || b.mobile || undefined,
+          country: b.country2 || b.country || undefined,
+          address: (b.address || b.city) ? { street: b.address, city: b.city, zip: b.postcode, country: b.country2 || b.country } : undefined,
+          language: b.lang || 'de',
+          preferredLanguage: b.lang || 'de',
+          businessGuest: !!b.company,
+          companyName: b.company || undefined,
+          source: mapSource(b.apiSource, b.channel),
+          beds24GuestId: `${b.id}-guest`,
+          arrivalTime: b.arrivalTime || undefined,
+        };
+
+        const matchQuery = email && !isFake
+          ? { $or: [{ beds24GuestId: guestData.beds24GuestId }, { email: email, tenantId: TENANT_ID }] }
+          : { beds24GuestId: guestData.beds24GuestId };
+
+        const guestResult = await Guest.findOneAndUpdate(
+          matchQuery,
+          { $set: guestData },
+          { upsert: true, new: true }
+        );
+        guestId = guestResult._id;
+      }
+
+      bookingData.guestId = guestId;
+      bookingData.country2 = b.country2 || b.country || undefined;
+      bookingData.arrivalTime = b.arrivalTime || undefined;
+      bookingData.rateDescription = b.rateDescription || undefined;
+
       const result = await Booking.findOneAndUpdate(
         { beds24BookingId: b.id },
         { $set: bookingData },
         { upsert: true, new: true, includeResultMetadata: true }
       );
+
+      // Link booking to guest
+      if (guestId && result.value?._id) {
+        await Guest.updateOne(
+          { _id: guestId },
+          { $addToSet: { bookings: result.value._id } }
+        );
+      }
 
       if (result.lastErrorObject?.updatedExisting) {
         updated++;
