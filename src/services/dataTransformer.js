@@ -88,9 +88,10 @@ function transformBeds24Guest(b) {
   const isFake = isEmailFake(email);
 
   // Name-basierte ID wenn keine echte Email
+  const normName = `${firstName}-${lastName}`.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
   const guestId = email && !isFake
     ? `email-${email.toLowerCase()}`
-    : `name-${firstName}-${lastName}`.toLowerCase().replace(/\s+/g, '-');
+    : `name-${normName}`;
 
   return {
     tenantId: '507f1f77bcf86cd799439011',
