@@ -2,28 +2,10 @@ const Booking = require('../models/Booking');
 const Guest = require('../models/Guest');
 const beds24 = require('./beds24Service');
 const ROOM_MAPPING = require('./roomMapping');
-
-const FAKE_EMAIL_PATTERNS = ['@guest.booking.com', '@m.airbnb.com', '@airbnb.com', '@guest.expedia.com'];
+const { transformBeds24Booking, transformBeds24Guest, isEmailFake } = require('./dataTransformer');
 
 const SYNC_INTERVAL = 30 * 60 * 1000; // 30 Minuten
 const TENANT_ID = '507f1f77bcf86cd799439011';
-
-function mapStatus(beds24Status) {
-  if (beds24Status === 'confirmed') return 'confirmed';
-  if (beds24Status === 'cancelled') return 'cancelled';
-  if (beds24Status === 'checked-in' || beds24Status === 'checkedin') return 'checked-in';
-  if (beds24Status === 'checked-out' || beds24Status === 'checkedout') return 'checked-out';
-  if (beds24Status === 'no-show' || beds24Status === 'noshow') return 'no-show';
-  return 'confirmed';
-}
-
-function mapSource(apiSource, channel) {
-  const src = (apiSource || '').toLowerCase();
-  if (src === 'booking.com') return 'booking';
-  if (src === 'airbnb') return 'airbnb';
-  if (src === 'expedia') return 'expedia';
-  return 'beds24';
-}
 
 async function syncBookings() {
   try {
@@ -39,7 +21,6 @@ async function syncBookings() {
     let page = 1;
     let hasMore = true;
 
-    // Alle Seiten holen
     while (hasMore) {
       const result = await beds24.getBookings(fromDate, toDate, page);
       if (result.data && result.data.length > 0) {
@@ -51,71 +32,32 @@ async function syncBookings() {
 
     let created = 0;
     let updated = 0;
+    let guestsCreated = 0;
 
     for (const b of allBookings) {
-      const mapped = ROOM_MAPPING[String(b.roomId)] || null;
-      const bookingData = {
-        tenantId: TENANT_ID,
-        bookingNumber: `B24-${b.id}`,
-        source: mapSource(b.apiSource, b.channel),
-        beds24BookingId: b.id,
-        beds24RoomId: b.roomId,
-        beds24PropertyId: b.propertyId,
-        guestName: `${b.firstName || ''} ${b.lastName || ''}`.trim() || null,
-        channel: b.apiSource || b.channel || 'direct',
-        status: mapStatus(b.status),
-        adults: b.numAdult || 1,
-        children: b.numChild || 0,
-        checkIn: new Date(b.arrival),
-        checkOut: new Date(b.departure),
-        nights: Math.round((new Date(b.departure) - new Date(b.arrival)) / 86400000),
-        pricing: { total: b.price || 0 },
-        externalId: String(b.id),
-        internalNotes: b.notes || undefined,
-        roomName: mapped ? mapped.name : 'Unbekannt',
-        roomType: mapped ? mapped.type : 'unknown',
-        hasBalcony: mapped ? mapped.hasBalcony : false,
-      };
-
-      // Gast upsert
+      // Guest upsert
       let guestId = null;
       if (b.firstName || b.lastName || b.email) {
-        const email = b.email || null;
-        const isFake = email ? FAKE_EMAIL_PATTERNS.some(p => email.toLowerCase().includes(p)) : false;
-        const guestData = {
-          tenantId: TENANT_ID,
-          firstName: b.firstName || '',
-          lastName: b.lastName || '',
-          email: email,
-          emailIsFake: isFake,
-          phone: b.phone || b.mobile || undefined,
-          country: b.country2 || b.country || undefined,
-          address: (b.address || b.city) ? { street: b.address, city: b.city, zip: b.postcode, country: b.country2 || b.country } : undefined,
-          language: b.lang || 'de',
-          preferredLanguage: b.lang || 'de',
-          businessGuest: !!b.company,
-          companyName: b.company || undefined,
-          source: mapSource(b.apiSource, b.channel),
-          beds24GuestId: `${b.id}-guest`,
-          arrivalTime: b.arrivalTime || undefined,
-        };
+        const guestData = transformBeds24Guest(b);
+        const email = guestData.email;
+        const isFake = guestData.emailIsFake;
 
         const matchQuery = email && !isFake
-          ? { $or: [{ beds24GuestId: guestData.beds24GuestId }, { email: email, tenantId: TENANT_ID }] }
+          ? { $or: [{ beds24GuestId: guestData.beds24GuestId }, { email, tenantId: TENANT_ID }] }
           : { beds24GuestId: guestData.beds24GuestId };
 
         const guestResult = await Guest.findOneAndUpdate(
           matchQuery,
           { $set: guestData },
-          { upsert: true, new: true }
+          { upsert: true, new: true, includeResultMetadata: true }
         );
-        guestId = guestResult._id;
+        guestId = guestResult.value?._id || guestResult._id;
+        if (!guestResult.lastErrorObject?.updatedExisting) guestsCreated++;
       }
 
+      // Booking upsert
+      const bookingData = transformBeds24Booking(b, ROOM_MAPPING);
       bookingData.guestId = guestId;
-      bookingData.country2 = b.country2 || b.country || undefined;
-      bookingData.arrivalTime = b.arrivalTime || undefined;
-      bookingData.rateDescription = b.rateDescription || undefined;
 
       const result = await Booking.findOneAndUpdate(
         { beds24BookingId: b.id },
@@ -138,8 +80,12 @@ async function syncBookings() {
       }
     }
 
-    const summary = { synced: allBookings.length, created, updated, timestamp: new Date().toISOString() };
-    console.log(`[Beds24 Sync] ${summary.synced} Buchungen synchronisiert (${created} neu, ${updated} aktualisiert)`);
+    const summary = {
+      synced: allBookings.length,
+      created, updated, guestsCreated,
+      timestamp: new Date().toISOString()
+    };
+    console.log(`[Beds24 Sync] ${summary.synced} Buchungen (${created} neu, ${updated} aktualisiert), ${guestsCreated} neue Gäste`);
     return summary;
   } catch (err) {
     console.error('[Beds24 Sync] Fehler:', err.message);
@@ -148,7 +94,6 @@ async function syncBookings() {
 }
 
 function startSync() {
-  // Einmalig beim Start (5s Delay damit MongoDB connected ist)
   setTimeout(async () => {
     try {
       await syncBookings();
@@ -157,7 +102,6 @@ function startSync() {
     }
   }, 5000);
 
-  // Dann alle 30 Minuten
   setInterval(async () => {
     try {
       await syncBookings();
