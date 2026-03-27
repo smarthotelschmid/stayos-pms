@@ -65,6 +65,22 @@ router.post('/', async (req, res) => {
   }
 });
 
+// ── GET /api/bookings/search?q= ──────────────────────────
+router.get('/search', async (req, res) => {
+  try {
+    const q = req.query.q;
+    if (!q) return res.json({ success: true, count: 0, data: [] });
+    const regex = new RegExp(q, 'i');
+    const bookings = await Booking.find({
+      $or: [{ guestName: regex }, { bookingNumber: regex }],
+      checkOut: { $gte: new Date() }
+    }).sort({ checkIn: 1 }).limit(5);
+    res.json({ success: true, count: bookings.length, data: bookings });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // ── GET /api/bookings/:id ──────────────────────────────
 router.get('/:id', async (req, res) => {
   try {
