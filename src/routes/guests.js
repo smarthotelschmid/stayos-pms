@@ -2,11 +2,49 @@ const express = require('express');
 const router = express.Router();
 const Guest = require('../models/Guest');
 
+// ── GET /api/guests/search?q= ────────────────────────
+// MUST be before /:id to avoid "search" matching as id
+router.get('/search', async (req, res) => {
+  try {
+    const q = req.query.q;
+    if (!q) return res.json({ success: true, count: 0, data: [] });
+    const regex = new RegExp(q, 'i');
+    const guests = await Guest.find({
+      $or: [{ firstName: regex }, { lastName: regex }, { email: regex }]
+    }).limit(20);
+    res.json({ success: true, count: guests.length, data: guests });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // ── GET /api/guests ────────────────────────────────────
-// Alle Gäste abrufen
+// Dedupliziert: gruppiert nach Name, behält Eintrag mit meisten Buchungen
 router.get('/', async (req, res) => {
   try {
-    const guests = await Guest.find();
+    const guests = await Guest.aggregate([
+      {
+        $addFields: {
+          bookingCount: { $size: { $ifNull: ['$bookings', []] } },
+          groupKey: {
+            $cond: {
+              if: { $and: [{ $ne: ['$email', null] }, { $ne: ['$email', ''] }, { $ne: ['$emailIsFake', true] }] },
+              then: '$email',
+              else: { $concat: [{ $ifNull: ['$firstName', ''] }, '|', { $ifNull: ['$lastName', ''] }] }
+            }
+          }
+        }
+      },
+      { $sort: { bookingCount: -1 } },
+      {
+        $group: {
+          _id: '$groupKey',
+          doc: { $first: '$$ROOT' }
+        }
+      },
+      { $replaceRoot: { newRoot: '$doc' } },
+      { $sort: { lastName: 1, firstName: 1 } }
+    ]);
     res.json({ success: true, count: guests.length, data: guests });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -14,13 +52,11 @@ router.get('/', async (req, res) => {
 });
 
 // ── POST /api/guests ───────────────────────────────────
-// Neuen Gast anlegen — prüft automatisch ob E-Mail fake ist
 router.post('/', async (req, res) => {
   try {
     const guest = await Guest.create(req.body);
-    // Warnung ausgeben wenn Fake-E-Mail erkannt
-    const warning = guest.emailIsFake 
-      ? 'Fake-E-Mail erkannt — bitte echte E-Mail nachfragen' 
+    const warning = guest.emailIsFake
+      ? 'Fake-E-Mail erkannt — bitte echte E-Mail nachfragen'
       : null;
     res.status(201).json({ success: true, data: guest, warning });
   } catch (err) {
@@ -40,12 +76,11 @@ router.get('/:id', async (req, res) => {
 });
 
 // ── PUT /api/guests/:id ────────────────────────────────
-// Gast aktualisieren z.B. echte E-Mail nachtragen
 router.put('/:id', async (req, res) => {
   try {
-    const guest = await Guest.findByIdAndUpdate(req.params.id, req.body, { 
-      new: true, 
-      runValidators: true 
+    const guest = await Guest.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true
     });
     if (!guest) return res.status(404).json({ success: false, error: 'Gast nicht gefunden' });
     res.json({ success: true, data: guest });
@@ -60,21 +95,6 @@ router.delete('/:id', async (req, res) => {
     const guest = await Guest.findByIdAndDelete(req.params.id);
     if (!guest) return res.status(404).json({ success: false, error: 'Gast nicht gefunden' });
     res.json({ success: true, message: 'Gast gelöscht' });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// ── GET /api/guests/search?q= ────────────────────────
-router.get('/search', async (req, res) => {
-  try {
-    const q = req.query.q;
-    if (!q) return res.json({ success: true, count: 0, data: [] });
-    const regex = new RegExp(q, 'i');
-    const guests = await Guest.find({
-      $or: [{ firstName: regex }, { lastName: regex }, { email: regex }]
-    }).limit(20);
-    res.json({ success: true, count: guests.length, data: guests });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
