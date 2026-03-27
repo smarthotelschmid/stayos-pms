@@ -3,6 +3,11 @@ const FAKE_EMAIL_PATTERNS = [
   '@airbnb.com', '@guest.expedia.com'
 ];
 
+function decodeHtml(str) {
+  if (!str) return str;
+  return str.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+}
+
 function mapChannel(apiSource, channel) {
   const s = (apiSource || channel || '').toLowerCase();
   if (s.includes('booking')) return 'Booking.com';
@@ -43,7 +48,7 @@ function transformBeds24Booking(b, roomMapping) {
     otaBookingId: b.apiReference || null,
     referer: b.referer || null,
     bookingNumber: `B24-${b.id}`,
-    guestName: [b.firstName, b.lastName].filter(Boolean).join(' ').trim() || b.lastName || '',
+    guestName: decodeHtml([b.firstName, b.lastName].filter(Boolean).join(' ').trim() || b.lastName || ''),
     guestTitle: b.title || null,
     adults: b.numAdult || 1,
     children: b.numChild || 0,
@@ -78,19 +83,28 @@ function transformBeds24Booking(b, roomMapping) {
 
 function transformBeds24Guest(b) {
   const email = b.email || null;
+  const firstName = decodeHtml(b.firstName || '');
+  const lastName = decodeHtml(b.lastName || '');
+  const isFake = isEmailFake(email);
+
+  // Name-basierte ID wenn keine echte Email
+  const guestId = email && !isFake
+    ? `email-${email.toLowerCase()}`
+    : `name-${firstName}-${lastName}`.toLowerCase().replace(/\s+/g, '-');
+
   return {
     tenantId: '507f1f77bcf86cd799439011',
-    firstName: b.firstName || '',
-    lastName: b.lastName || '',
+    firstName,
+    lastName,
     guestTitle: b.title || null,
     email: email,
-    emailIsFake: isEmailFake(email),
+    emailIsFake: isFake,
     phone: b.phone || b.mobile || null,
     country: b.country2 || b.country || null,
     preferredLanguage: b.lang || 'de',
     language: b.lang || 'de',
     businessGuest: !!b.company,
-    companyName: b.company || null,
+    companyName: decodeHtml(b.company) || null,
     address: {
       street: b.address || null,
       city: b.city || null,
@@ -101,7 +115,7 @@ function transformBeds24Guest(b) {
     arrivalTime: b.arrivalTime || null,
     mealPlan: mapMealPlan(b.rateDescription),
     source: 'beds24',
-    beds24GuestId: `beds24-${b.id}`
+    beds24GuestId: guestId
   };
 }
 
@@ -111,5 +125,6 @@ module.exports = {
   mapChannel,
   mapStatus,
   mapMealPlan,
-  isEmailFake
+  isEmailFake,
+  decodeHtml
 };
