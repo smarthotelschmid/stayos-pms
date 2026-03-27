@@ -3,6 +3,15 @@ const FAKE_EMAIL_PATTERNS = [
   '@airbnb.com', '@guest.expedia.com'
 ];
 
+const CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+function generateBookingNumber(tenantCode = 'SCH') {
+  const code = Array.from({length: 6}, () =>
+    CHARS[Math.floor(Math.random() * CHARS.length)]
+  ).join('');
+  return `${tenantCode}-${code}`;
+}
+
 function decodeHtml(str) {
   if (!str) return str;
   return str.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
@@ -47,7 +56,7 @@ function transformBeds24Booking(b, roomMapping) {
     beds24PropertyId: b.propertyId,
     otaBookingId: b.apiReference || null,
     referer: b.referer || null,
-    bookingNumber: `B24-${b.id}`,
+    bookingNumber: generateBookingNumber(),
     guestName: decodeHtml([b.firstName, b.lastName].filter(Boolean).join(' ').trim() || b.lastName || ''),
     guestTitle: b.title || null,
     adults: b.numAdult || 1,
@@ -123,6 +132,7 @@ function transformBeds24Guest(b) {
 module.exports = {
   transformBeds24Booking,
   transformBeds24Guest,
+  generateBookingNumber,
   mapChannel,
   mapStatus,
   mapMealPlan,

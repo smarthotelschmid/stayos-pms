@@ -72,7 +72,7 @@ router.get('/search', async (req, res) => {
     if (!q) return res.json({ success: true, count: 0, data: [] });
     const regex = new RegExp(q, 'i');
     const bookings = await Booking.find({
-      $or: [{ guestName: regex }, { bookingNumber: regex }],
+      $or: [{ guestName: regex }, { bookingNumber: regex }, { otaBookingId: regex }, { beds24BookingId: regex }],
       checkOut: { $gte: new Date() }
     }).sort({ checkIn: 1 }).limit(5);
     res.json({ success: true, count: bookings.length, data: bookings });

@@ -58,10 +58,11 @@ async function syncBookings() {
       // Booking upsert
       const bookingData = transformBeds24Booking(b, ROOM_MAPPING);
       bookingData.guestId = guestId;
+      const { bookingNumber, ...updateData } = bookingData;
 
       const result = await Booking.findOneAndUpdate(
         { beds24BookingId: b.id },
-        { $set: bookingData },
+        { $set: updateData, $setOnInsert: { bookingNumber } },
         { upsert: true, new: true, includeResultMetadata: true }
       );
 
