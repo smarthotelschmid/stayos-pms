@@ -71,10 +71,20 @@ router.get('/search', async (req, res) => {
     const q = req.query.q;
     if (!q) return res.json({ success: true, count: 0, data: [] });
     const regex = new RegExp(q, 'i');
+    const orConditions = [
+      { guestName: regex },
+      { bookingNumber: regex },
+      { otaBookingId: regex },
+      { roomName: regex },
+      { channel: regex },
+    ];
+    // beds24BookingId is Number — match as string via regex on bookingNumber or exact number
+    if (!isNaN(q)) orConditions.push({ beds24BookingId: Number(q) });
+    else orConditions.push({ externalId: regex });
+
     const bookings = await Booking.find({
-      $or: [{ guestName: regex }, { bookingNumber: regex }, { otaBookingId: regex }, { beds24BookingId: regex }],
-      checkOut: { $gte: new Date() }
-    }).sort({ checkIn: 1 }).limit(5);
+      $or: orConditions
+    }).sort({ checkIn: -1 }).limit(10).populate('guestId', 'firstName lastName');
     res.json({ success: true, count: bookings.length, data: bookings });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
