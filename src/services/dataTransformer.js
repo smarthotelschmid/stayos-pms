@@ -48,11 +48,13 @@ function isEmailFake(email) {
   return FAKE_EMAIL_PATTERNS.some(p => email.toLowerCase().includes(p));
 }
 
-function transformBeds24Booking(b, roomMapping) {
+function transformBeds24Booking(b, roomMapping, unitMapping) {
   const mapped = roomMapping[String(b.roomId)];
+  const exactRoom = unitMapping ? unitMapping[`${b.roomId}-${b.unitId}`] : null;
   return {
     beds24BookingId: b.id,
     beds24RoomId: b.roomId,
+    beds24UnitId: b.unitId || null,
     beds24PropertyId: b.propertyId,
     otaBookingId: b.apiReference || null,
     referer: b.referer || null,
@@ -68,7 +70,7 @@ function transformBeds24Booking(b, roomMapping) {
     bookedAt: b.bookingTime ? new Date(b.bookingTime) : null,
     modifiedAt: b.modifiedTime ? new Date(b.modifiedTime) : null,
     cancelledAt: b.cancelTime ? new Date(b.cancelTime) : null,
-    roomName: mapped?.name || 'Unbekannt',
+    roomName: exactRoom || mapped?.name || 'Unbekannt',
     roomType: mapped?.type || 'unknown',
     hasBalcony: mapped?.hasBalcony || false,
     channel: mapChannel(b.apiSource, b.channel),

@@ -28,6 +28,7 @@ const bookingSchema = new mongoose.Schema({
   // Beds24 spezifische Felder
   beds24BookingId: { type: Number, index: true },
   beds24RoomId: { type: Number },
+  beds24UnitId: { type: Number },
   beds24PropertyId: { type: Number },
   guestName: { type: String },
   channel: { type: String },

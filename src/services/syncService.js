@@ -1,7 +1,7 @@
 const Booking = require('../models/Booking');
 const Guest = require('../models/Guest');
 const beds24 = require('./beds24Service');
-const ROOM_MAPPING = require('./roomMapping');
+const { BEDS24_ROOM_MAPPING: ROOM_MAPPING, UNIT_TO_ROOM } = require('./roomMapping');
 const { transformBeds24Booking, transformBeds24Guest, isEmailFake } = require('./dataTransformer');
 
 const SYNC_INTERVAL = 30 * 60 * 1000; // 30 Minuten
@@ -54,7 +54,7 @@ async function syncBookings() {
       }
 
       // Booking upsert
-      const bookingData = transformBeds24Booking(b, ROOM_MAPPING);
+      const bookingData = transformBeds24Booking(b, ROOM_MAPPING, UNIT_TO_ROOM);
       bookingData.guestId = guestId;
       const { bookingNumber, ...updateData } = bookingData;
 
