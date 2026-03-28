@@ -41,6 +41,24 @@ function mapStatus(status) {
   return 'new';
 }
 
+function cleanCompanyFromGuestName(guestName, companyName) {
+  if (!guestName || !companyName) return guestName;
+  let cleaned = guestName;
+  // Remove company name variations
+  cleaned = cleaned.replace(/STM\s+Sp\.\s*z\s*o\.o\./gi, '');
+  cleaned = cleaned.replace(/GmbH/gi, '');
+  cleaned = cleaned.replace(/Touristik/gi, '');
+  // Remove VAT IDs
+  cleaned = cleaned.replace(/[A-Z]{2}\d{8,}/g, '');
+  // Remove the company name itself
+  if (companyName) {
+    const escaped = companyName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    cleaned = cleaned.replace(new RegExp(escaped, 'gi'), '');
+  }
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+  return cleaned || guestName;
+}
+
 function mapMealPlan(rateDescription) {
   const r = (rateDescription || '').toLowerCase();
   if (r.includes('frühstück') || r.includes('breakfast') || r.includes('bb')) return 'BB';
@@ -170,6 +188,7 @@ module.exports = {
   transformBeds24Booking,
   transformBeds24Guest,
   transformBeds24Company,
+  cleanCompanyFromGuestName,
   generateBookingNumber,
   mapChannel,
   mapStatus,
