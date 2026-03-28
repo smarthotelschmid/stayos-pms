@@ -10,7 +10,7 @@ router.get('/search', async (req, res) => {
     if (!q) return res.json({ success: true, count: 0, data: [] });
     const regex = new RegExp(q, 'i');
     const guests = await Guest.find({
-      $or: [{ firstName: regex }, { lastName: regex }, { email: regex }]
+      $or: [{ firstName: regex }, { lastName: regex }, { email: regex }, { companyName: regex }]
     }).limit(20);
     res.json({ success: true, count: guests.length, data: guests });
   } catch (err) {

@@ -42,6 +42,10 @@ const bookingSchema = new mongoose.Schema({
   // Rate Plan Referenz
   ratePlanId: { type: mongoose.Schema.Types.ObjectId, ref: 'RatePlan' },
 
+  // Firma & Rechnung
+  companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company' },
+  invoiceRecipient: { type: String, enum: ['guest', 'company'], default: 'guest' },
+
   // ── STATUS ────────────────────────────────────────────
   
   // Der aktuelle Zustand der Buchung
