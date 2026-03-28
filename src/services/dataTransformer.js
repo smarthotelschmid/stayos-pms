@@ -132,7 +132,7 @@ function transformBeds24Guest(b) {
   const lastName = decodeHtml(g?.lastName || b.lastName || '');
   const isFake = isEmailFake(guestEmail);
 
-  const normName = `${firstName}-${lastName}`.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  const normName = `${firstName}-${lastName}`.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\u00C0-\u024F-]/g, '');
   const guestId = guestEmail && !isFake
     ? `email-${guestEmail.toLowerCase()}`
     : `name-${normName}`;

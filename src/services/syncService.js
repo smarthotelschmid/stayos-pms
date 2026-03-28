@@ -70,7 +70,10 @@ async function syncBookings() {
           ? { beds24GuestId: guestData.beds24GuestId }
           : email && !isFake
             ? { $or: [{ beds24GuestId: guestData.beds24GuestId }, { email, tenantId: TENANT_ID }] }
-            : { beds24GuestId: guestData.beds24GuestId };
+            : { $or: [
+                { beds24GuestId: guestData.beds24GuestId },
+                ...(guestData.firstName && guestData.lastName ? [{ firstName: guestData.firstName, lastName: guestData.lastName, tenantId: TENANT_ID }] : [])
+              ] };
 
         const guestResult = await Guest.findOneAndUpdate(
           matchQuery,
