@@ -10,11 +10,9 @@ const TENANT_ID = '507f1f77bcf86cd799439011';
 async function syncBookings() {
   try {
     const today = new Date();
-    const past = new Date(today);
-    past.setDate(past.getDate() - 180);
     const future = new Date(today);
     future.setDate(future.getDate() + 365);
-    const fromDate = past.toISOString().split('T')[0];
+    const fromDate = '2025-01-01';
     const toDate = future.toISOString().split('T')[0];
 
     let allBookings = [];
