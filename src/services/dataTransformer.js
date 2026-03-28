@@ -106,31 +106,34 @@ function transformBeds24Booking(b, roomMapping, unitMapping) {
 
 function transformBeds24Guest(b) {
   const g = b.guests?.[0];
-  const email = b.email || g?.email || null;
+  const isCompany = !!b.company && !b.firstName && !b.lastName;
+
+  // For company bookings: guest email/address comes from guest tab, not booking
+  const guestEmail = isCompany ? (g?.email || null) : (b.email || g?.email || null);
   const firstName = decodeHtml(g?.firstName || b.firstName || '');
   const lastName = decodeHtml(g?.lastName || b.lastName || '');
-  const isFake = isEmailFake(email);
+  const isFake = isEmailFake(guestEmail);
 
-  // Name-basierte ID wenn keine echte Email
   const normName = `${firstName}-${lastName}`.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-  const guestId = email && !isFake
-    ? `email-${email.toLowerCase()}`
+  const guestId = guestEmail && !isFake
+    ? `email-${guestEmail.toLowerCase()}`
     : `name-${normName}`;
 
   return {
     tenantId: '507f1f77bcf86cd799439011',
     firstName,
     lastName,
-    guestTitle: b.title || null,
-    email: email,
+    guestTitle: b.title || g?.title || null,
+    email: guestEmail,
     emailIsFake: isFake,
-    phone: b.phone || b.mobile || g?.phone || g?.mobile || null,
-    country: b.country2 || b.country || null,
+    phone: isCompany ? (g?.phone || g?.mobile || null) : (b.phone || b.mobile || g?.phone || g?.mobile || null),
+    country: isCompany ? (g?.country2 || g?.country || null) : (b.country2 || b.country || null),
     preferredLanguage: b.lang || 'de',
     language: b.lang || 'de',
-    businessGuest: !!b.company,
+    businessGuest: isCompany,
     companyName: decodeHtml(b.company) || null,
-    address: {
+    // Company bookings: address belongs to company, not guest
+    address: isCompany ? null : {
       street: b.address || null,
       city: b.city || null,
       state: b.state || null,
@@ -144,9 +147,29 @@ function transformBeds24Guest(b) {
   };
 }
 
+function transformBeds24Company(b) {
+  if (!b.company) return null;
+  const name = decodeHtml(b.company).trim();
+  const isTravel = name.toLowerCase().includes('touristik') || name.toLowerCase().includes('reise') || name.toLowerCase().includes('travel');
+  return {
+    tenantId: '507f1f77bcf86cd799439011',
+    name,
+    type: isTravel ? 'travel_agency' : 'corporate',
+    contactEmail: b.email || null,
+    address: {
+      street: b.address || null,
+      city: b.city || null,
+      zip: b.postcode || null,
+      country: b.country2 || b.country || null
+    },
+    isActive: true,
+  };
+}
+
 module.exports = {
   transformBeds24Booking,
   transformBeds24Guest,
+  transformBeds24Company,
   generateBookingNumber,
   mapChannel,
   mapStatus,

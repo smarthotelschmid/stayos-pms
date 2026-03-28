@@ -2,7 +2,8 @@ const Booking = require('../models/Booking');
 const Guest = require('../models/Guest');
 const beds24 = require('./beds24Service');
 const { BEDS24_ROOM_MAPPING: ROOM_MAPPING, UNIT_TO_ROOM } = require('./roomMapping');
-const { transformBeds24Booking, transformBeds24Guest, isEmailFake } = require('./dataTransformer');
+const Company = require('../models/Company');
+const { transformBeds24Booking, transformBeds24Guest, transformBeds24Company, isEmailFake } = require('./dataTransformer');
 
 const SYNC_INTERVAL = 30 * 60 * 1000; // 30 Minuten
 const TENANT_ID = '507f1f77bcf86cd799439011';
@@ -33,6 +34,20 @@ async function syncBookings() {
     let guestsCreated = 0;
 
     for (const b of allBookings) {
+      // Company upsert
+      let companyId = null;
+      if (b.company) {
+        const companyData = transformBeds24Company(b);
+        if (companyData) {
+          const companyResult = await Company.findOneAndUpdate(
+            { name: companyData.name, tenantId: TENANT_ID },
+            { $set: companyData },
+            { upsert: true, new: true }
+          );
+          companyId = companyResult._id;
+        }
+      }
+
       // Guest upsert — check guests[0] as fallback for company bookings
       let guestId = null;
       const g0 = b.guests?.[0];
@@ -64,11 +79,17 @@ async function syncBookings() {
         );
         guestId = guestResult.value?._id || guestResult._id;
         if (!guestResult.lastErrorObject?.updatedExisting) guestsCreated++;
+
+        // Link company to guest
+        if (companyId && guestId) {
+          await Guest.updateOne({ _id: guestId }, { $set: { companyId } });
+        }
       }
 
       // Booking upsert
       const bookingData = transformBeds24Booking(b, ROOM_MAPPING, UNIT_TO_ROOM);
       bookingData.guestId = guestId;
+      bookingData.companyId = companyId;
       const { bookingNumber, ...updateData } = bookingData;
 
       const result = await Booking.findOneAndUpdate(
