@@ -33,16 +33,29 @@ async function syncBookings() {
     let guestsCreated = 0;
 
     for (const b of allBookings) {
-      // Guest upsert
+      // Guest upsert — check guests[0] as fallback for company bookings
       let guestId = null;
-      if (b.firstName || b.lastName || b.email) {
+      const g0 = b.guests?.[0];
+      const hasGuestData = b.firstName || b.lastName || b.email || g0?.firstName || g0?.lastName || b.company;
+      if (hasGuestData) {
         const guestData = transformBeds24Guest(b);
+
+        // For company bookings with individual guests: match by guest ID only
+        const isCompanyWithGuest = g0?.id && !b.firstName && !b.lastName;
+        if (isCompanyWithGuest) {
+          guestData.beds24GuestId = `beds24-guest-${g0.id}`;
+          guestData.email = g0.email || null;
+          guestData.emailIsFake = false;
+        }
+
         const email = guestData.email;
         const isFake = guestData.emailIsFake;
 
-        const matchQuery = email && !isFake
-          ? { $or: [{ beds24GuestId: guestData.beds24GuestId }, { email, tenantId: TENANT_ID }] }
-          : { beds24GuestId: guestData.beds24GuestId };
+        const matchQuery = isCompanyWithGuest
+          ? { beds24GuestId: guestData.beds24GuestId }
+          : email && !isFake
+            ? { $or: [{ beds24GuestId: guestData.beds24GuestId }, { email, tenantId: TENANT_ID }] }
+            : { beds24GuestId: guestData.beds24GuestId };
 
         const guestResult = await Guest.findOneAndUpdate(
           matchQuery,
