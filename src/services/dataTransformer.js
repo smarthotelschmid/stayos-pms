@@ -126,10 +126,11 @@ function transformBeds24Guest(b) {
   const g = b.guests?.[0];
   const isCompany = !!b.company && !b.firstName && !b.lastName;
 
-  // For company bookings: guest email/address comes from guest tab, not booking
+  // For company bookings: guest data comes from guest tab
+  // For normal bookings: prefer booking-level name (actual booker), guests[0] may be group organizer
   const guestEmail = isCompany ? (g?.email || null) : (b.email || g?.email || null);
-  const firstName = decodeHtml(g?.firstName || b.firstName || '');
-  const lastName = decodeHtml(g?.lastName || b.lastName || '');
+  const firstName = decodeHtml(isCompany ? (g?.firstName || b.firstName || '') : (b.firstName || g?.firstName || ''));
+  const lastName = decodeHtml(isCompany ? (g?.lastName || b.lastName || '') : (b.lastName || g?.lastName || ''));
   const isFake = isEmailFake(guestEmail);
 
   const normName = `${firstName}-${lastName}`.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\u00C0-\u024F-]/g, '');
