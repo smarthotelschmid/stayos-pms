@@ -105,9 +105,10 @@ function transformBeds24Booking(b, roomMapping, unitMapping) {
 }
 
 function transformBeds24Guest(b) {
-  const email = b.email || null;
-  const firstName = decodeHtml(b.firstName || '');
-  const lastName = decodeHtml(b.lastName || '');
+  const g = b.guests?.[0];
+  const email = b.email || g?.email || null;
+  const firstName = decodeHtml(g?.firstName || b.firstName || '');
+  const lastName = decodeHtml(g?.lastName || b.lastName || '');
   const isFake = isEmailFake(email);
 
   // Name-basierte ID wenn keine echte Email
@@ -123,7 +124,7 @@ function transformBeds24Guest(b) {
     guestTitle: b.title || null,
     email: email,
     emailIsFake: isFake,
-    phone: b.phone || b.mobile || null,
+    phone: b.phone || b.mobile || g?.phone || g?.mobile || null,
     country: b.country2 || b.country || null,
     preferredLanguage: b.lang || 'de',
     language: b.lang || 'de',
