@@ -70,7 +70,7 @@ class Beds24Service {
 
   async getBookings(fromDate, toDate, page) {
     const token = await this.getToken();
-    const query = { arrival_from: fromDate, arrival_to: toDate };
+    const query = { arrival_from: fromDate, arrival_to: toDate, includeGuests: 'true' };
     if (page && page > 1) query.page = page;
     const params = new URLSearchParams(query);
     const res = await fetch(`${BASE_URL}/bookings?${params}`, {

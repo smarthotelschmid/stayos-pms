@@ -65,7 +65,13 @@ function transformBeds24Booking(b, roomMapping, unitMapping) {
     otaBookingId: b.apiReference || null,
     referer: b.referer || null,
     bookingNumber: generateBookingNumber(),
-    guestName: decodeHtml([b.firstName, b.lastName].filter(Boolean).join(' ').trim() || b.lastName || ''),
+    guestName: decodeHtml(
+      [b.firstName, b.lastName].filter(Boolean).join(' ').trim()
+      || (b.guests?.[0] ? [b.guests[0].firstName, b.guests[0].lastName].filter(Boolean).join(' ').trim() : '')
+      || b.company
+      || ''
+    ),
+    beds24Guests: b.guests || [],
     guestTitle: b.title || null,
     adults: b.numAdult || 1,
     children: b.numChild || 0,
