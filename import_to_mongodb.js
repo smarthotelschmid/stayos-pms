@@ -39,6 +39,11 @@ async function run() {
       continue;
     }
 
+    // Ensure dates are Date objects + decode HTML
+    if (typeof b.checkIn === 'string') b.checkIn = new Date(b.checkIn);
+    if (typeof b.checkOut === 'string') b.checkOut = new Date(b.checkOut);
+    if (b.guestName) b.guestName = b.guestName.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
+    if (b.lastName) b.lastName = b.lastName.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
     await col.insertOne(b);
     inserted++;
   }
