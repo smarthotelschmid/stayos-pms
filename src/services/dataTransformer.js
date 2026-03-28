@@ -18,10 +18,16 @@ function decodeHtml(str) {
 }
 
 function mapChannel(apiSource, channel) {
-  const s = (apiSource || channel || '').toLowerCase();
-  if (s.includes('booking')) return 'Booking.com';
-  if (s.includes('airbnb')) return 'Airbnb';
-  if (s.includes('expedia')) return 'Expedia';
+  const s = (apiSource || channel || '').toLowerCase().trim();
+  if (s === 'booking.com' || s.includes('booking')) return 'Booking.com';
+  if (s === 'airbnb' || s.includes('airbnb')) return 'Airbnb';
+  if (s === 'expedia' || s.includes('expedia')) return 'Expedia';
+  if (s === 'vrbo' || s.includes('vrbo')) return 'Vrbo';
+  if (s === 'agoda' || s.includes('agoda')) return 'Agoda';
+  if (s === 'tripadvisor' || s.includes('tripadvisor')) return 'TripAdvisor';
+  if (s === 'google' || s.includes('google')) return 'Google';
+  if (s === 'direct' || s === 'direkt' || s === '') return 'Direct';
+  if (apiSource) return apiSource;
   return 'Direct';
 }
 
