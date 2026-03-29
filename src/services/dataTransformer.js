@@ -59,6 +59,16 @@ function cleanCompanyFromGuestName(guestName, companyName) {
   return cleaned || guestName;
 }
 
+function extractDoorCode(b) {
+  const fields = [b.notes, b.comments, b.message,
+    b.custom1, b.custom2, b.custom3, b.custom4, b.custom5,
+    b.custom6, b.custom7, b.custom8, b.custom9, b.custom10].filter(Boolean);
+  const text = fields.join('\n');
+  // Match patterns: LOCK_PIN: 1234, PIN: 1234, door code: 1234, access code: 1234, lockPin: 1234, doorCode: 1234, infoCode: 1234
+  const match = text.match(/(?:LOCK[_\s]?PIN|PIN|door[_\s]?code|access[_\s]?code|lock[_\s]?pin|info[_\s]?code|doorCode|lockCode)\s*[:=]\s*(\d{3,8})/i);
+  return match ? match[1] : null;
+}
+
 function mapMealPlan(rateDescription) {
   const r = (rateDescription || '').toLowerCase();
   if (r.includes('frühstück') || r.includes('breakfast') || r.includes('bb')) return 'BB';
@@ -116,6 +126,7 @@ function transformBeds24Booking(b, roomMapping, unitMapping) {
     rateDescription: b.rateDescription || null,
     mealPlan: mapMealPlan(b.rateDescription),
     country2: b.country2 || b.country || null,
+    doorCode: extractDoorCode(b) || null,
     guestNotes: [b.comments, b.notes, b.message].filter(Boolean).join(' | ') || null,
     externalId: String(b.id),
     tenantId: '507f1f77bcf86cd799439011'
@@ -189,6 +200,7 @@ module.exports = {
   transformBeds24Booking,
   transformBeds24Guest,
   transformBeds24Company,
+  extractDoorCode,
   cleanCompanyFromGuestName,
   generateBookingNumber,
   mapChannel,
