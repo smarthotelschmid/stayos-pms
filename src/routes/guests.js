@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Guest = require('../models/Guest');
+const { ObjectId } = require('mongodb');
 
 // ── GET /api/guests/search?q= ────────────────────────
 // MUST be before /:id to avoid "search" matching as id
@@ -22,6 +23,14 @@ router.get('/search', async (req, res) => {
 // Dedupliziert: gruppiert nach Name, behält Eintrag mit meisten Buchungen
 router.get('/', async (req, res) => {
   try {
+    // Batch-Lookup by IDs
+    if (req.query.ids) {
+      const idList = req.query.ids.split(',').map(id => id.trim()).filter(Boolean);
+      const objectIds = idList.map(id => { try { return new ObjectId(id); } catch { return id; } });
+      const guests = await Guest.find({ _id: { $in: objectIds } });
+      return res.json({ success: true, count: guests.length, data: guests });
+    }
+
     const guests = await Guest.aggregate([
       {
         $addFields: {
