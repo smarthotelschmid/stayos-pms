@@ -9,10 +9,23 @@ router.get('/search', async (req, res) => {
   try {
     const q = req.query.q;
     if (!q) return res.json({ success: true, count: 0, data: [] });
-    const regex = new RegExp(q, 'i');
-    const guests = await Guest.find({
-      $or: [{ firstName: regex }, { lastName: regex }, { email: regex }, { companyName: regex }]
-    }).limit(20);
+
+    // $text Index-Suche (schnell, auch bei 50.000+ Datensätzen)
+    let guests;
+    try {
+      guests = await Guest.find({
+        tenantId: '507f1f77bcf86cd799439011',
+        $text: { $search: q }
+      }).limit(20);
+    } catch {
+      // Regex-Fallback falls Text-Index noch nicht existiert
+      const regex = new RegExp(q, 'i');
+      guests = await Guest.find({
+        tenantId: '507f1f77bcf86cd799439011',
+        $or: [{ firstName: regex }, { lastName: regex }, { email: regex }, { companyName: regex }]
+      }).limit(20);
+    }
+
     res.json({ success: true, count: guests.length, data: guests });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

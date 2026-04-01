@@ -97,4 +97,7 @@ guestSchema.pre('save', function(next) {
   next();
 });
 
+// Text-Index für performante Gästesuche
+guestSchema.index({ firstName: 'text', lastName: 'text', email: 'text', companyName: 'text' });
+
 module.exports = mongoose.model('Guest', guestSchema);
