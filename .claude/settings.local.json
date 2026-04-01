@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls C:/stayos-pms/*.js C:/stayos-pms/*.ts C:/stayos-pms/*.mjs)",
+      "Bash(node index.js)",
+      "Bash(npm start:*)",
+      "Bash(PORT=3001 node src/index.js)",
+      "Read(//c/stayos-dashboard/**)",
+      "Bash(npm run:*)",
+      "Bash(node -e \":*)",
+      "Bash(ls C:/Users/ichli/Downloads/Now*)",
+      "Bash(ls C:/Users/ichli/Downloads/now*)",
+      "Bash(\"C:/stayos-dashboard/app/components/Now.jsx\")"
+    ]
+  }
+}

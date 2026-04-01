@@ -89,7 +89,10 @@ async function syncBookings() {
         }
       }
 
-      // Booking upsert
+      // Booking upsert — soft-deleted Buchungen nicht überschreiben
+      const existing = await Booking.findOne({ beds24BookingId: b.id });
+      if (existing?.status === 'deleted') continue;
+
       const bookingData = transformBeds24Booking(b, ROOM_MAPPING, UNIT_TO_ROOM);
       bookingData.guestId = guestId;
       bookingData.companyId = companyId;
@@ -116,12 +119,37 @@ async function syncBookings() {
       }
     }
 
+    // Soft Delete: Buchungen die in Beds24 nicht mehr existieren
+    // TODO: ersetzt durch Webhook-Logik wenn Self-built Channel Manager live
+    const beds24Ids = allBookings.map(b => b.id);
+    const now = new Date();
+    const in90Days = new Date(now);
+    in90Days.setDate(in90Days.getDate() + 90);
+    const orphaned = await Booking.updateMany(
+      {
+        beds24BookingId: { $nin: beds24Ids },
+        source: 'beds24',
+        status: { $nin: ['deleted', 'checked-out', 'no-show'] },
+        checkOut: { $gte: now, $lte: in90Days }
+      },
+      {
+        $set: {
+          status: 'deleted',
+          deletedAt: now,
+          deletedBy: 'beds24-sync',
+          deleteReason: 'In Beds24 nicht mehr vorhanden'
+        }
+      }
+    );
+    const removed = orphaned.modifiedCount || 0;
+    if (removed > 0) console.log(`[Beds24 Sync] ${removed} Buchungen soft-deleted`);
+
     const summary = {
       synced: allBookings.length,
-      created, updated, guestsCreated,
+      created, updated, guestsCreated, removed,
       timestamp: new Date().toISOString()
     };
-    console.log(`[Beds24 Sync] ${summary.synced} Buchungen (${created} neu, ${updated} aktualisiert), ${guestsCreated} neue Gäste`);
+    console.log(`[Beds24 Sync] ${summary.synced} Buchungen (${created} neu, ${updated} aktualisiert, ${removed} soft-deleted), ${guestsCreated} neue Gäste`);
     return summary;
   } catch (err) {
     console.error('[Beds24 Sync] Fehler:', err.message);
