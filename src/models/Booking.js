@@ -200,6 +200,9 @@ const bookingSchema = new mongoose.Schema({
   // Spezialwünsche des Gastes
   guestRequests: { type: String },
 
+  // Manuell überschrieben — Sync darf diese Buchung nicht mehr ändern
+  manualOverride: { type: Boolean, default: false },
+
 // timestamps fügt createdAt und updatedAt automatisch hinzu
 }, { timestamps: true });
 

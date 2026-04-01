@@ -89,9 +89,10 @@ async function syncBookings() {
         }
       }
 
-      // Booking upsert — soft-deleted Buchungen nicht überschreiben
+      // Booking upsert — soft-deleted und manuell überschriebene Buchungen nicht anfassen
       const existing = await Booking.findOne({ beds24BookingId: b.id });
       if (existing?.status === 'deleted') continue;
+      if (existing?.manualOverride === true) continue;
 
       const bookingData = transformBeds24Booking(b, ROOM_MAPPING, UNIT_TO_ROOM);
       bookingData.guestId = guestId;
@@ -119,18 +120,18 @@ async function syncBookings() {
       }
     }
 
-    // Soft Delete: Buchungen die in Beds24 nicht mehr existieren
+    // Soft Delete: nur VERGANGENE Buchungen die in Beds24 nicht mehr existieren
+    // Aktive Buchungen (checkOut in Zukunft) nie automatisch löschen
     // TODO: ersetzt durch Webhook-Logik wenn Self-built Channel Manager live
     const beds24Ids = allBookings.map(b => b.id);
     const now = new Date();
-    const in90Days = new Date(now);
-    in90Days.setDate(in90Days.getDate() + 90);
     const orphaned = await Booking.updateMany(
       {
         beds24BookingId: { $nin: beds24Ids },
         source: 'beds24',
         status: { $nin: ['deleted', 'checked-out', 'no-show'] },
-        checkOut: { $gte: now, $lte: in90Days }
+        manualOverride: { $ne: true },
+        checkOut: { $lt: now }
       },
       {
         $set: {
