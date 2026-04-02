@@ -3,16 +3,31 @@ const router = express.Router();
 const Booking = require('../models/Booking');
 
 // ── GET /api/bookings ──────────────────────────────────
-// Alle Buchungen abrufen — später mit Filter nach Datum, Status etc.
+// Query-Parameter: from, to, status, limit, page
 router.get('/', async (req, res) => {
   try {
-    const bookings = await Booking.find()
-      // populate holt die echten Daten aus den verknüpften Collections
-      // statt nur der ID sehen wir dann den ganzen Gast und das ganze Zimmer
+    const { from, to, status, limit: limitParam, page: pageParam } = req.query;
+    const filter = {};
+
+    // Datum-Filter: from → checkOut >= from, to → checkIn <= to
+    if (from) filter.checkOut = { $gte: new Date(from) };
+    if (to) filter.checkIn = { ...(filter.checkIn || {}), $lte: new Date(to) };
+
+    // Status-Filter: kommagetrennt, z.B. status=confirmed,checked-in
+    if (status) filter.status = { $in: status.split(',') };
+
+    // Pagination
+    const limit = Math.min(parseInt(limitParam) || 500, 1000);
+    const page = Math.max(parseInt(pageParam) || 1, 1);
+    const skip = (page - 1) * limit;
+
+    const bookings = await Booking.find(filter)
       .populate('guestId', 'firstName lastName email phone')
       .populate('roomId', 'number name type pricePerNight floor maxGuests amenities')
-      .sort({ checkIn: -1 }); // neueste zuerst
-    res.json({ success: true, count: bookings.length, data: bookings });
+      .sort({ checkIn: -1 })
+      .skip(skip)
+      .limit(limit);
+    res.json({ success: true, count: bookings.length, page, limit, data: bookings });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

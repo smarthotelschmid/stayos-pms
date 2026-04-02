@@ -131,7 +131,7 @@ async function syncBookings() {
         source: 'beds24',
         status: { $nin: ['deleted', 'checked-out', 'no-show'] },
         manualOverride: { $ne: true },
-        checkOut: { $lt: now }
+        checkOut: { $gte: now }
       },
       {
         $set: {
