@@ -27,6 +27,19 @@ const settingsSchema = new mongoose.Schema({
     doorCode: { subject: { type: String }, body: { type: String } },
     checkout: { subject: { type: String }, body: { type: String } },
   },
+
+  // TTLock Integration
+  ttlock: {
+    accessToken: { type: String },
+    refreshToken: { type: String },
+    tokenExpiry: { type: Date },
+    username: { type: String },
+    locks: [{
+      lockId: { type: Number },
+      lockName: { type: String },
+      roomId: { type: mongoose.Schema.Types.ObjectId, ref: 'Room' },
+    }],
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Settings', settingsSchema);
