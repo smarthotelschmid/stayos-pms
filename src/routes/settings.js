@@ -47,8 +47,9 @@ router.put('/', async (req, res) => {
 // Erstellt Transporter mit Fallback: erst Port 465/secure, dann 587/starttls
 async function createTransporter(smtp) {
   const configs = [
-    { port: smtp.port || 465, secure: smtp.secure !== false },
-    { port: 587, secure: false },
+    { port: 465, secure: true },
+    { port: 587, secure: false, tls: { ciphers: 'SSLv3' } },
+    { port: 25, secure: false },
   ];
   let lastErr;
   for (const config of configs) {
@@ -56,7 +57,7 @@ async function createTransporter(smtp) {
       const t = nodemailer.createTransport({
         host: smtp.host, ...config,
         auth: { user: smtp.user, pass: smtp.pass },
-        connectionTimeout: 15000, greetingTimeout: 15000,
+        connectionTimeout: 20000, greetingTimeout: 15000, socketTimeout: 20000,
       });
       await t.verify();
       return { transporter: t, port: config.port };
