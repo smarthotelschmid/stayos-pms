@@ -10,6 +10,23 @@ const settingsSchema = new mongoose.Schema({
   kurtaxeMinAge: { type: Number, default: 14 },
   mwstZimmer: { type: Number, default: 10 },
   mwstFruehstueck: { type: Number, default: 10 },
+
+  // SMTP Email-Einstellungen
+  smtp: {
+    host: { type: String },
+    port: { type: Number, default: 465 },
+    user: { type: String },
+    pass: { type: String },
+    fromName: { type: String },
+    secure: { type: Boolean, default: true },
+  },
+
+  // Email Templates
+  emailTemplates: {
+    bookingConfirmation: { subject: { type: String }, body: { type: String } },
+    doorCode: { subject: { type: String }, body: { type: String } },
+    checkout: { subject: { type: String }, body: { type: String } },
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Settings', settingsSchema);

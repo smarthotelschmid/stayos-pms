@@ -6,7 +6,7 @@ const Booking = require('../models/Booking');
 // Query-Parameter: from, to, status, limit, page
 router.get('/', async (req, res) => {
   try {
-    const { from, to, status, limit: limitParam, page: pageParam } = req.query;
+    const { from, to, status, includeDeleted, limit: limitParam, page: pageParam } = req.query;
     const filter = {};
 
     // Datum-Filter: from → checkOut >= from, to → checkIn <= to
@@ -15,6 +15,11 @@ router.get('/', async (req, res) => {
 
     // Status-Filter: kommagetrennt, z.B. status=confirmed,checked-in
     if (status) filter.status = { $in: status.split(',') };
+
+    // Gelöschte Buchungen standardmäßig ausblenden
+    if (includeDeleted !== 'true' && !status) {
+      filter.status = { ...filter.status, $ne: 'deleted' };
+    }
 
     // Pagination
     const limit = Math.min(parseInt(limitParam) || 500, 1000);

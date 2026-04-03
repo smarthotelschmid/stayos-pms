@@ -16,6 +16,7 @@ const ratePlansRouter = require('./routes/rateplans');
 const settingsRouter = require('./routes/settings');
 const beds24Router = require('./routes/beds24');
 const companiesRouter = require('./routes/companies');
+const messagesRouter = require('./routes/messages');
 const { startSync } = require('./services/syncService');
 
 app.use('/api/rooms', roomsRouter);
@@ -24,6 +25,7 @@ app.use('/api/bookings', bookingsRouter);
 app.use('/api/rateplans', ratePlansRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/companies', companiesRouter);
+app.use('/api/messages', messagesRouter);
 app.use('/api', beds24Router);
 
 // Test Route
