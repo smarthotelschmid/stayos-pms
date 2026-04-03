@@ -44,20 +44,34 @@ router.put('/', async (req, res) => {
   }
 });
 
+// Erstellt Transporter mit Fallback: erst Port 465/secure, dann 587/starttls
+async function createTransporter(smtp) {
+  const configs = [
+    { port: smtp.port || 465, secure: smtp.secure !== false },
+    { port: 587, secure: false },
+  ];
+  let lastErr;
+  for (const config of configs) {
+    try {
+      const t = nodemailer.createTransport({
+        host: smtp.host, ...config,
+        auth: { user: smtp.user, pass: smtp.pass },
+        connectionTimeout: 15000, greetingTimeout: 15000,
+      });
+      await t.verify();
+      return { transporter: t, port: config.port };
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr;
+}
+
 // ── POST /api/settings/email/verify ────────────────────
 router.post('/email/verify', async (req, res) => {
   try {
     const settings = await Settings.findOne({ tenantId: TENANT_ID });
     if (!settings?.smtp?.host) return res.json({ success: false, error: 'SMTP nicht konfiguriert' });
-    const transporter = nodemailer.createTransport({
-      host: settings.smtp.host,
-      port: settings.smtp.port || 465,
-      secure: settings.smtp.secure !== false,
-      auth: { user: settings.smtp.user, pass: settings.smtp.pass },
-      connectionTimeout: 10000,
-    });
-    await transporter.verify();
-    res.json({ success: true, message: 'SMTP Verbindung erfolgreich' });
+    const { port } = await createTransporter(settings.smtp);
+    res.json({ success: true, message: `SMTP Verbindung OK (Port ${port})` });
   } catch (err) {
     res.json({ success: false, error: err.message });
   }
@@ -69,19 +83,14 @@ router.post('/email/test', async (req, res) => {
     const { to } = req.body;
     const settings = await Settings.findOne({ tenantId: TENANT_ID });
     if (!settings?.smtp?.host) return res.json({ success: false, error: 'SMTP nicht konfiguriert' });
-    const transporter = nodemailer.createTransport({
-      host: settings.smtp.host,
-      port: settings.smtp.port || 465,
-      secure: settings.smtp.secure !== false,
-      auth: { user: settings.smtp.user, pass: settings.smtp.pass },
-    });
+    const { transporter, port } = await createTransporter(settings.smtp);
     await transporter.sendMail({
       from: `"${settings.smtp.fromName || 'STAYOS'}" <${settings.smtp.user}>`,
       to: to || settings.smtp.user,
       subject: 'STAYOS Test-Email',
-      html: '<h2>STAYOS Email-Test</h2><p>Wenn du diese Email siehst, funktioniert dein SMTP korrekt.</p>',
+      html: '<h2>STAYOS Email-Test</h2><p>Wenn du diese Email siehst, funktioniert dein SMTP korrekt.</p><p><small>Port: ' + port + '</small></p>',
     });
-    res.json({ success: true, message: `Test-Email gesendet an ${to || settings.smtp.user}` });
+    res.json({ success: true, message: `Test-Email gesendet an ${to || settings.smtp.user} (Port ${port})` });
   } catch (err) {
     res.json({ success: false, error: err.message });
   }
