@@ -1,7 +1,121 @@
 const express = require('express');
 const router = express.Router();
 const Booking = require('../models/Booking');
-const { getToken, ttlockPost, CLIENT_ID } = require('../services/ttlockHelper');
+const Settings = require('../models/Settings');
+const { getToken, ttlockPost, CLIENT_ID, TENANT_ID } = require('../services/ttlockHelper');
+
+const ENTRANCE_LOCK_ID = 3321320;
+
+// TTLock Code generieren für eine Buchung
+async function findLockForBooking(booking, settings) {
+  const Room = require('../models/Room');
+  const roomId = (booking.roomId?._id || booking.roomId)?.toString();
+  let lockEntry = (settings?.ttlock?.locks || []).find(l => l.roomId?.toString() === roomId);
+  if (!lockEntry && booking.roomName) {
+    const room = await Room.findOne({ tenantId: TENANT_ID, name: booking.roomName });
+    if (room) lockEntry = (settings?.ttlock?.locks || []).find(l => l.roomId?.toString() === room._id.toString());
+  }
+  return lockEntry;
+}
+
+async function generateCode(booking) {
+  const settings = await Settings.findOne({ tenantId: TENANT_ID });
+  const lockEntry = await findLockForBooking(booking, settings);
+  if (!lockEntry || !settings?.ttlock?.accessToken) return null;
+
+  const token = await getToken();
+  const checkInTime = settings.checkInTime || '15:00';
+  const checkOutTime = settings.checkOutTime || '11:00';
+
+  // Datum aus ISO-String extrahieren — Timezone-safe
+  const ciStr = (booking.checkIn instanceof Date ? booking.checkIn.toISOString() : booking.checkIn).slice(0, 10);
+  const coStr = (booking.checkOut instanceof Date ? booking.checkOut.toISOString() : booking.checkOut).slice(0, 10);
+  const [ciY, ciM, ciD] = ciStr.split('-').map(Number);
+  const [coY, coM, coD] = coStr.split('-').map(Number);
+  const [ciH, ciMin] = checkInTime.split(':').map(Number);
+  const [coH, coMin] = checkOutTime.split(':').map(Number);
+  // TTLock addiert den CEST-Offset — wir senden Lokalzeit (new Date = Vienna auf diesem Rechner)
+  const startDate = new Date(ciY, ciM - 1, ciD, ciH, ciMin).getTime();
+  const endDate = new Date(coY, coM - 1, coD, coH, coMin).getTime();
+
+  const guestName = booking.guestName || booking.bookingNumber || 'Gast';
+  // PIN aus Telefonnummer (letzte 4 Ziffern) oder zufällig
+  function gen4Pin(phone) {
+    if (phone) {
+      const digits = phone.replace(/\D/g, '');
+      if (digits.length >= 4) {
+        const last4 = digits.slice(-4);
+        const d = last4.split('').map(Number);
+        const seq = d.every((v, i) => i === 0 || v === d[i-1] + 1) || d.every((v, i) => i === 0 || v === d[i-1] - 1);
+        const rep = d.every(v => v === d[0]);
+        if (!seq && !rep) return last4;
+      }
+    }
+    for (let i = 0; i < 100; i++) {
+      const pin = String(1000 + Math.floor(Math.random() * 9000));
+      const d = pin.split('').map(Number);
+      const seq = d.every((v, i) => i === 0 || v === d[i-1] + 1) || d.every((v, i) => i === 0 || v === d[i-1] - 1);
+      const rep = d.every(v => v === d[0]);
+      if (!seq && !rep) return pin;
+    }
+    return '3947';
+  }
+  // Gast-Telefonnummer laden
+  const Guest = require('../models/Guest');
+  const guestId = (booking.guestId?._id || booking.guestId)?.toString();
+  let phone = null;
+  if (guestId && guestId !== '507f1f77bcf86cd799439011') {
+    const guest = await Guest.findById(guestId, 'phone').lean();
+    phone = guest?.phone;
+  }
+  const customCode = gen4Pin(phone);
+  const pwdName = `${guestName} ${booking.bookingNumber || ''}`.trim();
+  const pwdParams = {
+    clientId: CLIENT_ID, accessToken: token,
+    keyboardPwdType: 3, keyboardPwd: customCode, addType: 2,
+    startDate: startDate.toString(), endDate: endDate.toString(),
+    keyboardPwdName: pwdName, date: Date.now(),
+  };
+
+  const roomResult = await ttlockPost('/v3/keyboardPwd/add', { ...pwdParams, lockId: lockEntry.lockId });
+  if (!roomResult.keyboardPwdId) return null;
+
+  const entranceResult = await ttlockPost('/v3/keyboardPwd/add', { ...pwdParams, lockId: ENTRANCE_LOCK_ID });
+
+  const doorAccess = {
+    stayosCode: customCode,
+    roomKeyboardPwdId: roomResult.keyboardPwdId,
+    entranceKeyboardPwdId: entranceResult.keyboardPwdId || null,
+    roomLockId: lockEntry.lockId,
+    entranceLockId: ENTRANCE_LOCK_ID,
+    generatedAt: new Date(),
+    validFrom: new Date(startDate),
+    validTo: new Date(endDate),
+  };
+
+  await Booking.updateOne({ _id: booking._id }, { $set: { doorAccess } });
+  console.log(`[TTLock] Code generiert: ${booking.roomName || roomId} → ${roomResult.keyboardPwd} (${guestName})`);
+  return doorAccess;
+}
+
+// TTLock Code löschen
+async function deleteCode(booking) {
+  if (!booking.doorAccess?.roomKeyboardPwdId) return;
+  try {
+    const token = await getToken();
+    const params = { clientId: CLIENT_ID, accessToken: token, date: Date.now() };
+    if (booking.doorAccess.roomLockId) {
+      await ttlockPost('/v3/keyboardPwd/delete', { ...params, lockId: booking.doorAccess.roomLockId, keyboardPwdId: booking.doorAccess.roomKeyboardPwdId });
+    }
+    if (booking.doorAccess.entranceKeyboardPwdId) {
+      await ttlockPost('/v3/keyboardPwd/delete', { ...params, lockId: ENTRANCE_LOCK_ID, keyboardPwdId: booking.doorAccess.entranceKeyboardPwdId });
+    }
+    await Booking.updateOne({ _id: booking._id }, { $set: { 'doorAccess.stayosCode': null, 'doorAccess.deletedAt': new Date() } });
+    console.log(`[TTLock] Code gelöscht: ${booking.guestName || booking.bookingNumber} (${booking.roomName})`);
+  } catch (e) {
+    console.log(`[TTLock] Code löschen Fehler: ${e.message}`);
+  }
+}
 
 // ── GET /api/bookings ──────────────────────────────────
 // Query-Parameter: from, to, status, limit, page
@@ -70,69 +184,51 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // Buchungsnummer automatisch generieren: HTL-2026-0001
+    // Gast automatisch anlegen wenn guestName vorhanden aber kein echter guestId
+    const Guest = require('../models/Guest');
+    let guestId = req.body.guestId;
+    if (req.body.guestName && (!guestId || guestId === '507f1f77bcf86cd799439011')) {
+      const nameParts = req.body.guestName.trim().split(/\s+/);
+      const firstName = nameParts.slice(0, -1).join(' ') || nameParts[0];
+      const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+      // Bestehenden Gast suchen oder neuen anlegen
+      let guest = await Guest.findOne({
+        tenantId, firstName, lastName,
+      });
+      if (!guest) {
+        guest = await Guest.create({
+          tenantId,
+          firstName,
+          lastName,
+          email: req.body.guestEmail || null,
+          phone: req.body.guestPhone || null,
+          companyName: req.body.guestCompany || null,
+          source: 'direct',
+        });
+        console.log(`[Guest] Neu angelegt: ${firstName} ${lastName}`);
+      }
+      guestId = guest._id;
+    }
+
+    // Buchungsnummer automatisch generieren: SCH-XXXXXX
     const year = new Date().getFullYear();
     const count = await Booking.countDocuments();
-    const bookingNumber = `HTL-${year}-${String(count + 1).padStart(4, '0')}`;
+    const bookingNumber = `SCH-${String(count + 1).padStart(6, '0')}`;
 
     const booking = await Booking.create({
       ...req.body,
+      guestId,
       bookingNumber
     });
 
-    // Same-day Buchung → TTLock Code sofort generieren
+    // Bei confirmed: TTLock Code sofort generieren
     try {
-      const today = new Date(); today.setHours(0,0,0,0);
-      const ciDate = new Date(checkIn); ciDate.setHours(0,0,0,0);
-      if (ciDate.getTime() === today.getTime()) {
-        const Settings = require('../models/Settings');
-        const settings = await Settings.findOne({ tenantId });
-        const lockEntry = (settings?.ttlock?.locks || []).find(l => l.roomId?.toString() === roomId);
-        if (lockEntry && settings?.ttlock?.accessToken) {
-          const token = await getToken();
-          const ENTRANCE_LOCK_ID = 3321320;
-          const checkInTime = settings.checkInTime || '15:00';
-          const checkOutTime = settings.checkOutTime || '11:00';
-
-          const [ciY,ciM,ciD] = checkIn.slice(0,10).split('-').map(Number);
-          const [coY,coM,coD] = checkOut.slice(0,10).split('-').map(Number);
-          const [ciH,ciMin] = checkInTime.split(':').map(Number);
-          const [coH,coMin] = checkOutTime.split(':').map(Number);
-          const startDate = new Date(ciY, ciM-1, ciD, ciH, ciMin).getTime();
-          const endDate = new Date(coY, coM-1, coD, coH, coMin).getTime();
-
-          const guestName = req.body.guestName || booking.bookingNumber;
-          const pwdParams = {
-            clientId: CLIENT_ID,
-            accessToken: token,
-            keyboardPwdType: 2,
-            startDate: startDate.toString(),
-            endDate: endDate.toString(),
-            keyboardPwdName: `${guestName} ${bookingNumber}`.trim(),
-            date: Date.now(),
-          };
-
-          const roomResult = await ttlockPost('/v3/keyboardPwd/get', { ...pwdParams, lockId: lockEntry.lockId });
-          const entranceResult = await ttlockPost('/v3/keyboardPwd/get', { ...pwdParams, lockId: ENTRANCE_LOCK_ID });
-
-          if (roomResult.keyboardPwd) {
-            await Booking.updateOne({ _id: booking._id }, { $set: {
-              'doorAccess.code': roomResult.keyboardPwd,
-              'doorAccess.roomKeyboardPwdId': roomResult.keyboardPwdId,
-              'doorAccess.entranceKeyboardPwdId': entranceResult.keyboardPwdId || null,
-              'doorAccess.roomLockId': lockEntry.lockId,
-              'doorAccess.entranceLockId': ENTRANCE_LOCK_ID,
-              'doorAccess.generatedAt': new Date(),
-              'doorAccess.validFrom': new Date(startDate),
-              'doorAccess.validTo': new Date(endDate),
-            }});
-            booking.doorAccess = { code: roomResult.keyboardPwd, roomLockId: lockEntry.lockId, entranceLockId: ENTRANCE_LOCK_ID };
-            console.log(`[TTLock] Same-day Buchung — Code sofort generiert: ${booking.roomName || roomId} → ${roomResult.keyboardPwd}`);
-          }
-        }
+      if (req.body.status === 'confirmed' || !req.body.status) {
+        const da = await generateCode(booking);
+        if (da) booking.doorAccess = da;
       }
     } catch (e) {
-      console.log(`[TTLock] Same-day Code Fehler: ${e.message}`);
+      console.log(`[TTLock] Code-Generierung Fehler: ${e.message}`);
     }
 
     res.status(201).json({ success: true, data: booking });
@@ -206,39 +302,15 @@ router.patch('/:id/status', async (req, res) => {
     );
     if (!booking) return res.status(404).json({ success: false, error: 'Buchung nicht gefunden' });
 
-    // Bei Check-out: TTLock Codes löschen
-    if (status === 'checked-out' && booking.doorAccess?.code) {
-      try {
-        const token = await getToken();
-        const deleteParams = { clientId: CLIENT_ID, accessToken: token, date: Date.now() };
-
-        // Zimmer-Schloss Code löschen
-        if (booking.doorAccess.roomKeyboardPwdId && booking.doorAccess.roomLockId) {
-          const r1 = await ttlockPost('/v3/keyboardPwd/delete', {
-            ...deleteParams,
-            lockId: booking.doorAccess.roomLockId,
-            keyboardPwdId: booking.doorAccess.roomKeyboardPwdId,
-          });
-          console.log(`[TTLock Checkout] Zimmer ${booking.roomName}: ${r1.errcode ? r1.errmsg : 'gelöscht'}`);
-        }
-
-        // Haupteingang Code löschen
-        if (booking.doorAccess.entranceKeyboardPwdId && booking.doorAccess.entranceLockId) {
-          const r2 = await ttlockPost('/v3/keyboardPwd/delete', {
-            ...deleteParams,
-            lockId: booking.doorAccess.entranceLockId,
-            keyboardPwdId: booking.doorAccess.entranceKeyboardPwdId,
-          });
-          console.log(`[TTLock Checkout] Haupteingang: ${r2.errcode ? r2.errmsg : 'gelöscht'}`);
-        }
-
-        await Booking.updateOne({ _id: booking._id }, {
-          $set: { 'doorAccess.code': null, 'doorAccess.deletedAt': new Date() }
-        });
-        console.log(`[TTLock Checkout] Code gelöscht für ${booking.guestName || booking.bookingNumber} (${booking.roomName})`);
-      } catch (e) {
-        console.log(`[TTLock Checkout] Fehler: ${e.message}`);
+    try {
+      if (status === 'confirmed' && !booking.doorAccess?.stayosCode) {
+        await generateCode(booking);
       }
+      if (status === 'cancelled' || status === 'checked-out') {
+        await deleteCode(booking);
+      }
+    } catch (e) {
+      console.log(`[TTLock] Status-Change Code Fehler: ${e.message}`);
     }
 
     res.json({ success: true, data: booking });

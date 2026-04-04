@@ -136,16 +136,18 @@ const bookingSchema = new mongoose.Schema({
   // ── TÜRCODE ───────────────────────────────────────────
   
   doorAccess: {
-    // Die Lock-ID des Schlosses (TTLock, Assa Abloy etc.)
     lockId:    { type: String },
-    // Der generierte PIN-Code für den Gast
     code:      { type: String },
-    // Gültig von Check-in bis Check-out + 1 Stunde Puffer
+    stayosCode: { type: String },
+    roomLockId: { type: Number },
+    entranceLockId: { type: Number },
+    roomKeyboardPwdId: { type: Number },
+    entranceKeyboardPwdId: { type: Number },
+    generatedAt: { type: Date },
     validFrom: { type: Date },
     validTo:   { type: Date },
-    // Wann wurde der Code versendet?
     sentAt:    { type: Date },
-    // Wurde der Code bereits deaktiviert?
+    deletedAt: { type: Date },
     revoked:   { type: Boolean, default: false },
   },
 
