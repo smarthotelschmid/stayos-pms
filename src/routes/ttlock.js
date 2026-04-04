@@ -92,6 +92,26 @@ router.get('/locks', async (req, res) => {
 
 // ── POST /api/ttlock/locks/:lockId/assign ──────────────
 // Schloss einem Zimmer zuordnen
+// ── POST /api/ttlock/locks/:lockId/unlock ──────────────
+router.post('/locks/:lockId/unlock', async (req, res) => {
+  try {
+    const token = await getToken();
+    const lockId = parseInt(req.params.lockId);
+    const params = new URLSearchParams({
+      clientId: CLIENT_ID,
+      accessToken: token,
+      lockId,
+      date: Date.now(),
+    });
+    const response = await fetch(`${TTLOCK_API}/v3/lock/unlock?${params.toString()}`);
+    const data = await response.json();
+    if (data.errcode) return res.json({ success: false, error: data.errmsg || `Fehler ${data.errcode}` });
+    res.json({ success: true, message: 'Tür geöffnet' });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
 router.post('/locks/:lockId/assign', async (req, res) => {
   try {
     const { roomId } = req.body;
