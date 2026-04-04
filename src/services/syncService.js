@@ -97,6 +97,11 @@ async function syncBookings() {
       const bookingData = transformBeds24Booking(b, ROOM_MAPPING, UNIT_TO_ROOM);
       bookingData.guestId = guestId;
       bookingData.companyId = companyId;
+      // doorAccess nicht komplett überschreiben — nur code aktualisieren
+      if (bookingData.doorAccess?.code) {
+        bookingData['doorAccess.code'] = bookingData.doorAccess.code;
+      }
+      delete bookingData.doorAccess;
       const { bookingNumber, ...updateData } = bookingData;
 
       const result = await Booking.findOneAndUpdate(
