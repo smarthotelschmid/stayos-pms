@@ -110,6 +110,8 @@ async function generateDoorCodes() {
         await Booking.updateOne({ _id: booking._id }, {
           $set: {
             'doorAccess.code': roomResult.keyboardPwd,
+            'doorAccess.roomKeyboardPwdId': roomResult.keyboardPwdId,
+            'doorAccess.entranceKeyboardPwdId': entranceResult.keyboardPwdId || null,
             'doorAccess.roomLockId': lockId,
             'doorAccess.entranceLockId': ENTRANCE_LOCK_ID,
             'doorAccess.generatedAt': new Date(),

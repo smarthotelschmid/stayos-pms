@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Booking = require('../models/Booking');
+const { getToken, ttlockPost, CLIENT_ID } = require('../services/ttlockHelper');
 
 // ── GET /api/bookings ──────────────────────────────────
 // Query-Parameter: from, to, status, limit, page
@@ -140,17 +141,51 @@ router.put('/:id', async (req, res) => {
 });
 
 // ── PATCH /api/bookings/:id/status ────────────────────
-// Nur den Status ändern z.B. confirmed → checked-in
-// Wird später vom Self Check-in Flow aufgerufen
 router.patch('/:id/status', async (req, res) => {
   try {
     const { status } = req.body;
     const booking = await Booking.findByIdAndUpdate(
-      req.params.id, 
+      req.params.id,
       { status },
       { new: true, runValidators: true }
     );
     if (!booking) return res.status(404).json({ success: false, error: 'Buchung nicht gefunden' });
+
+    // Bei Check-out: TTLock Codes löschen
+    if (status === 'checked-out' && booking.doorAccess?.code) {
+      try {
+        const token = await getToken();
+        const deleteParams = { clientId: CLIENT_ID, accessToken: token, date: Date.now() };
+
+        // Zimmer-Schloss Code löschen
+        if (booking.doorAccess.roomKeyboardPwdId && booking.doorAccess.roomLockId) {
+          const r1 = await ttlockPost('/v3/keyboardPwd/delete', {
+            ...deleteParams,
+            lockId: booking.doorAccess.roomLockId,
+            keyboardPwdId: booking.doorAccess.roomKeyboardPwdId,
+          });
+          console.log(`[TTLock Checkout] Zimmer ${booking.roomName}: ${r1.errcode ? r1.errmsg : 'gelöscht'}`);
+        }
+
+        // Haupteingang Code löschen
+        if (booking.doorAccess.entranceKeyboardPwdId && booking.doorAccess.entranceLockId) {
+          const r2 = await ttlockPost('/v3/keyboardPwd/delete', {
+            ...deleteParams,
+            lockId: booking.doorAccess.entranceLockId,
+            keyboardPwdId: booking.doorAccess.entranceKeyboardPwdId,
+          });
+          console.log(`[TTLock Checkout] Haupteingang: ${r2.errcode ? r2.errmsg : 'gelöscht'}`);
+        }
+
+        await Booking.updateOne({ _id: booking._id }, {
+          $set: { 'doorAccess.code': null, 'doorAccess.deletedAt': new Date() }
+        });
+        console.log(`[TTLock Checkout] Code gelöscht für ${booking.guestName || booking.bookingNumber} (${booking.roomName})`);
+      } catch (e) {
+        console.log(`[TTLock Checkout] Fehler: ${e.message}`);
+      }
+    }
+
     res.json({ success: true, data: booking });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
