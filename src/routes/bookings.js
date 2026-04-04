@@ -184,13 +184,40 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // Buchungsnummer automatisch generieren: HTL-2026-0001
+    // Gast automatisch anlegen wenn guestName vorhanden aber kein echter guestId
+    const Guest = require('../models/Guest');
+    let guestId = req.body.guestId;
+    if (req.body.guestName && (!guestId || guestId === '507f1f77bcf86cd799439011')) {
+      const nameParts = req.body.guestName.trim().split(/\s+/);
+      const firstName = nameParts.slice(0, -1).join(' ') || nameParts[0];
+      const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+      // Bestehenden Gast suchen oder neuen anlegen
+      let guest = await Guest.findOne({
+        tenantId, firstName, lastName,
+      });
+      if (!guest) {
+        guest = await Guest.create({
+          tenantId,
+          firstName,
+          lastName,
+          email: req.body.guestEmail || null,
+          phone: req.body.guestPhone || null,
+          companyName: req.body.guestCompany || null,
+          source: 'direct',
+        });
+        console.log(`[Guest] Neu angelegt: ${firstName} ${lastName}`);
+      }
+      guestId = guest._id;
+    }
+
+    // Buchungsnummer automatisch generieren: SCH-XXXXXX
     const year = new Date().getFullYear();
     const count = await Booking.countDocuments();
-    const bookingNumber = `HTL-${year}-${String(count + 1).padStart(4, '0')}`;
+    const bookingNumber = `SCH-${String(count + 1).padStart(6, '0')}`;
 
     const booking = await Booking.create({
       ...req.body,
+      guestId,
       bookingNumber
     });
 
