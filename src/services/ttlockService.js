@@ -135,13 +135,49 @@ async function generateDoorCodes() {
   }
 }
 
+const ALL_LOCKS = [
+  3321320, 2720122, 2720112, 2521990, 2522158, 2720132, 2720138,
+  2720152, 2720148, 2720144, 2720136, 2720126, 3653352, 3653284,
+];
+
+async function syncLockTime() {
+  try {
+    const token = await getToken();
+    let ok = 0, fail = 0;
+    for (const lockId of ALL_LOCKS) {
+      try {
+        const result = await ttlockPost('/v3/lock/updateDate', {
+          clientId: CLIENT_ID, accessToken: token, lockId, date: Date.now(),
+        });
+        if (result.date && !result.errcode) { ok++; }
+        else {
+          // Retry einmal nach 3s
+          await new Promise(r => setTimeout(r, 3000));
+          const retry = await ttlockPost('/v3/lock/updateDate', {
+            clientId: CLIENT_ID, accessToken: token, lockId, date: Date.now(),
+          });
+          if (retry.date && !retry.errcode) ok++; else fail++;
+        }
+      } catch { fail++; }
+    }
+    console.log(`[TTLock TimeSync] ${ok}/${ALL_LOCKS.length} Schlösser synchronisiert${fail ? `, ${fail} fehlgeschlagen` : ''}`);
+  } catch (err) {
+    console.error('[TTLock TimeSync] Fehler:', err.message);
+  }
+}
+
 function startTTLockCron() {
-  // Täglich um 09:00
+  // Täglich um 03:00 — Zeitsynchronisierung
+  cron.schedule('0 3 * * *', () => {
+    console.log('[TTLock TimeSync] Starte tägliche Zeitsynchronisierung...');
+    syncLockTime();
+  });
+  // Täglich um 09:00 — Türcodes generieren
   cron.schedule('0 9 * * *', () => {
     console.log('[TTLock Cron] Starte tägliche Türcode-Generierung...');
     generateDoorCodes();
   });
-  console.log('[TTLock Cron] Gestartet — täglich um 09:00');
+  console.log('[TTLock Cron] Gestartet — TimeSync 03:00, Türcodes 09:00');
 }
 
-module.exports = { startTTLockCron, generateDoorCodes };
+module.exports = { startTTLockCron, generateDoorCodes, syncLockTime };
