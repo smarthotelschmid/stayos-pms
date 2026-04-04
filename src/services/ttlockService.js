@@ -4,10 +4,11 @@ const Booking = require('../models/Booking');
 const { getToken, ttlockPost, CLIENT_ID, TENANT_ID } = require('./ttlockHelper');
 
 // Zeitstring "15:00" + Datum → Unix Timestamp in ms
+// TTLock erwartet Lokalzeit als UTC-Timestamp (addiert selbst den TZ-Offset)
 function timeToUnix(dateStr, timeStr) {
   const [y, m, d] = dateStr.slice(0, 10).split('-').map(Number);
   const [h, min] = (timeStr || '15:00').split(':').map(Number);
-  return new Date(y, m - 1, d, h, min, 0).getTime();
+  return Date.UTC(y, m - 1, d, h, min);
 }
 
 // Datum als YYYY-MM-DD

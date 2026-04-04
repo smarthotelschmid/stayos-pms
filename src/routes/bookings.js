@@ -34,9 +34,9 @@ async function generateCode(booking) {
   const [coY, coM, coD] = coStr.split('-').map(Number);
   const [ciH, ciMin] = checkInTime.split(':').map(Number);
   const [coH, coMin] = checkOutTime.split(':').map(Number);
-  // Lokalzeit Vienna erstellen (new Date(y,m,d,h,min) = Lokalzeit)
-  const startDate = new Date(ciY, ciM - 1, ciD, ciH, ciMin).getTime();
-  const endDate = new Date(coY, coM - 1, coD, coH, coMin).getTime();
+  // TTLock erwartet Lokalzeit als UTC-Timestamp (addiert selbst den TZ-Offset)
+  const startDate = Date.UTC(ciY, ciM - 1, ciD, ciH, ciMin);
+  const endDate = Date.UTC(coY, coM - 1, coD, coH, coMin);
 
   const guestName = booking.guestName || booking.bookingNumber || 'Gast';
   const pwdParams = {
