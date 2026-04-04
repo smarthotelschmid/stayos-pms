@@ -4,11 +4,15 @@ const Booking = require('../models/Booking');
 const { getToken, ttlockPost, CLIENT_ID, TENANT_ID } = require('./ttlockHelper');
 
 // Zeitstring "15:00" + Datum → Unix Timestamp in ms
-// TTLock addiert den CEST-Offset — wir senden Lokalzeit
+// Vienna Timezone korrekt — TTLock erwartet UTC-Timestamp
 function timeToUnix(dateStr, timeStr) {
   const [y, m, d] = dateStr.slice(0, 10).split('-').map(Number);
   const [h, min] = (timeStr || '15:00').split(':').map(Number);
-  return new Date(y, m - 1, d, h, min).getTime();
+  const utcMs = Date.UTC(y, m - 1, d, h, min);
+  const viennaStr = new Date(utcMs).toLocaleString('en', { timeZone: 'Europe/Vienna', timeZoneName: 'shortOffset' });
+  const match = viennaStr.match(/GMT([+-]\d+)/);
+  const offsetH = match ? parseInt(match[1]) : 2;
+  return utcMs - offsetH * 3600000;
 }
 
 // Datum als YYYY-MM-DD

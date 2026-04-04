@@ -27,16 +27,20 @@ async function generateCode(booking) {
   const checkInTime = settings.checkInTime || '15:00';
   const checkOutTime = settings.checkOutTime || '11:00';
 
-  // Datum aus ISO-String extrahieren — Timezone-safe
+  // Vienna Timezone korrekt — TTLock erwartet UTC-Timestamp, wir berechnen Vienna → UTC
+  const toViennaMs = (dateStr, timeStr) => {
+    const [y, m, d] = dateStr.slice(0, 10).split('-').map(Number);
+    const [h, min] = timeStr.split(':').map(Number);
+    const utcMs = Date.UTC(y, m - 1, d, h, min);
+    const viennaStr = new Date(utcMs).toLocaleString('en', { timeZone: 'Europe/Vienna', timeZoneName: 'shortOffset' });
+    const match = viennaStr.match(/GMT([+-]\d+)/);
+    const offsetH = match ? parseInt(match[1]) : 2;
+    return utcMs - offsetH * 3600000;
+  };
   const ciStr = (booking.checkIn instanceof Date ? booking.checkIn.toISOString() : booking.checkIn).slice(0, 10);
   const coStr = (booking.checkOut instanceof Date ? booking.checkOut.toISOString() : booking.checkOut).slice(0, 10);
-  const [ciY, ciM, ciD] = ciStr.split('-').map(Number);
-  const [coY, coM, coD] = coStr.split('-').map(Number);
-  const [ciH, ciMin] = checkInTime.split(':').map(Number);
-  const [coH, coMin] = checkOutTime.split(':').map(Number);
-  // TTLock addiert den CEST-Offset — wir senden Lokalzeit (new Date = Vienna auf diesem Rechner)
-  const startDate = new Date(ciY, ciM - 1, ciD, ciH, ciMin).getTime();
-  const endDate = new Date(coY, coM - 1, coD, coH, coMin).getTime();
+  const startDate = toViennaMs(ciStr, checkInTime);
+  const endDate = toViennaMs(coStr, checkOutTime);
 
   const guestName = booking.guestName || booking.bookingNumber || 'Gast';
   // PIN aus Telefonnummer (letzte 4 Ziffern) oder zufällig

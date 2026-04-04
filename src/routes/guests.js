@@ -10,19 +10,28 @@ router.get('/search', async (req, res) => {
     const q = req.query.q;
     if (!q) return res.json({ success: true, count: 0, data: [] });
 
-    // $text Index-Suche (schnell, auch bei 50.000+ Datensätzen)
+    const regex = new RegExp(q, 'i');
+    const parts = q.trim().split(/\s+/);
+    const orConditions = [
+      { firstName: regex }, { lastName: regex }, { email: regex }, { companyName: regex }
+    ];
+    // "Max Mustermann" → firstName=Max AND lastName=Mustermann
+    if (parts.length >= 2) {
+      orConditions.push({ firstName: new RegExp(parts[0], 'i'), lastName: new RegExp(parts.slice(1).join(' '), 'i') });
+      orConditions.push({ firstName: new RegExp(parts.slice(0, -1).join(' '), 'i'), lastName: new RegExp(parts[parts.length - 1], 'i') });
+    }
     let guests;
     try {
       guests = await Guest.find({
         tenantId: '507f1f77bcf86cd799439011',
         $text: { $search: q }
       }).limit(20);
+      // Text-Index findet nicht immer Kombinationen — Regex-Nachsuche
+      if (guests.length === 0) throw new Error('fallback');
     } catch {
-      // Regex-Fallback falls Text-Index noch nicht existiert
-      const regex = new RegExp(q, 'i');
       guests = await Guest.find({
         tenantId: '507f1f77bcf86cd799439011',
-        $or: [{ firstName: regex }, { lastName: regex }, { email: regex }, { companyName: regex }]
+        $or: orConditions
       }).limit(20);
     }
 
