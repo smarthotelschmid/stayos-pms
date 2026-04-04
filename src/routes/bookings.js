@@ -39,8 +39,18 @@ async function generateCode(booking) {
   const endDate = new Date(coY, coM - 1, coD, coH, coMin).getTime();
 
   const guestName = booking.guestName || booking.bookingNumber || 'Gast';
-  // 4-stelliger Custom Code — keine fortlaufenden/wiederholenden Ziffern
-  function gen4Pin() {
+  // PIN aus Telefonnummer (letzte 4 Ziffern) oder zufällig
+  function gen4Pin(phone) {
+    if (phone) {
+      const digits = phone.replace(/\D/g, '');
+      if (digits.length >= 4) {
+        const last4 = digits.slice(-4);
+        const d = last4.split('').map(Number);
+        const seq = d.every((v, i) => i === 0 || v === d[i-1] + 1) || d.every((v, i) => i === 0 || v === d[i-1] - 1);
+        const rep = d.every(v => v === d[0]);
+        if (!seq && !rep) return last4;
+      }
+    }
     for (let i = 0; i < 100; i++) {
       const pin = String(1000 + Math.floor(Math.random() * 9000));
       const d = pin.split('').map(Number);
@@ -50,7 +60,15 @@ async function generateCode(booking) {
     }
     return '3947';
   }
-  const customCode = gen4Pin();
+  // Gast-Telefonnummer laden
+  const Guest = require('../models/Guest');
+  const guestId = (booking.guestId?._id || booking.guestId)?.toString();
+  let phone = null;
+  if (guestId && guestId !== '507f1f77bcf86cd799439011') {
+    const guest = await Guest.findById(guestId, 'phone').lean();
+    phone = guest?.phone;
+  }
+  const customCode = gen4Pin(phone);
   const pwdName = `${guestName} ${booking.bookingNumber || ''}`.trim();
   const pwdParams = {
     clientId: CLIENT_ID, accessToken: token,

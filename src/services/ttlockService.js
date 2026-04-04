@@ -85,7 +85,17 @@ async function generateDoorCodes() {
       const ENTRANCE_LOCK_ID = 3321320;
       try {
         const pwdName = `${guestName} ${booking.bookingNumber || ''}`.trim();
-        function gen4Pin() {
+        function gen4Pin(phone) {
+          if (phone) {
+            const digits = phone.replace(/\D/g, '');
+            if (digits.length >= 4) {
+              const last4 = digits.slice(-4);
+              const d = last4.split('').map(Number);
+              const seq = d.every((v, i) => i === 0 || v === d[i-1] + 1) || d.every((v, i) => i === 0 || v === d[i-1] - 1);
+              const rep = d.every(v => v === d[0]);
+              if (!seq && !rep) return last4;
+            }
+          }
           for (let i = 0; i < 100; i++) {
             const pin = String(1000 + Math.floor(Math.random() * 9000));
             const d = pin.split('').map(Number);
@@ -95,7 +105,11 @@ async function generateDoorCodes() {
           }
           return '3947';
         }
-        const customCode = gen4Pin();
+        const Guest = require('../models/Guest');
+        const guestId = (booking.guestId?._id || booking.guestId)?.toString();
+        let phone = null;
+        if (guestId) { const g = await Guest.findById(guestId, 'phone').lean(); phone = g?.phone; }
+        const customCode = gen4Pin(phone);
         const pwdParams = {
           clientId: CLIENT_ID,
           accessToken: token,
