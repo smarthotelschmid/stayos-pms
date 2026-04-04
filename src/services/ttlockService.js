@@ -81,33 +81,45 @@ async function generateDoorCodes() {
 
       const guestName = booking.guestName || booking.bookingNumber || 'Gast';
 
+      const ENTRANCE_LOCK_ID = 3321320;
       try {
-        const result = await ttlockPost('/v3/keyboardPwd/get', {
+        const pwdName = `${guestName} ${booking.bookingNumber || ''}`.trim();
+        const pwdParams = {
           clientId: CLIENT_ID,
           accessToken: token,
-          lockId,
           keyboardPwdType: 2,
           startDate: startDate.toString(),
           endDate: endDate.toString(),
-          keyboardPwdName: `${guestName} ${booking.bookingNumber || ''}`.trim(),
+          keyboardPwdName: pwdName,
           date: Date.now(),
-        });
+        };
 
-        if (result.keyboardPwd) {
-          await Booking.updateOne({ _id: booking._id }, {
-            $set: {
-              'doorAccess.code': result.keyboardPwd,
-              'doorAccess.lockId': lockId,
-              'doorAccess.generatedAt': new Date(),
-              'doorAccess.validFrom': new Date(startDate),
-              'doorAccess.validTo': new Date(endDate),
-            }
-          });
-          generated++;
-          console.log(`[TTLock Cron] PIN generiert: ${booking.roomName} → ${result.keyboardPwd} (${guestName})`);
-        } else {
-          console.log(`[TTLock Cron] Fehler für ${booking.roomName}: ${result.errmsg || JSON.stringify(result)}`);
+        // PIN für Zimmer-Schloss generieren
+        const roomResult = await ttlockPost('/v3/keyboardPwd/get', { ...pwdParams, lockId });
+        if (!roomResult.keyboardPwd) {
+          console.log(`[TTLock Cron] Fehler Zimmer ${booking.roomName}: ${roomResult.errmsg || JSON.stringify(roomResult)}`);
+          continue;
         }
+
+        // Gleichen PIN auch für Haupteingang generieren
+        const entranceResult = await ttlockPost('/v3/keyboardPwd/get', { ...pwdParams, lockId: ENTRANCE_LOCK_ID });
+        if (!entranceResult.keyboardPwd) {
+          console.log(`[TTLock Cron] Warnung: Haupteingang-PIN fehlgeschlagen: ${entranceResult.errmsg}`);
+        }
+
+        await Booking.updateOne({ _id: booking._id }, {
+          $set: {
+            'doorAccess.code': roomResult.keyboardPwd,
+            'doorAccess.roomLockId': lockId,
+            'doorAccess.entranceLockId': ENTRANCE_LOCK_ID,
+            'doorAccess.generatedAt': new Date(),
+            'doorAccess.validFrom': new Date(startDate),
+            'doorAccess.validTo': new Date(endDate),
+          }
+        });
+        generated++;
+        console.log(`[TTLock Cron] PIN generiert: ${booking.roomName} + Haupteingang → ${roomResult.keyboardPwd} (${guestName})`);
+
       } catch (e) {
         console.log(`[TTLock Cron] Fehler für ${booking.roomName}: ${e.message}`);
       }
