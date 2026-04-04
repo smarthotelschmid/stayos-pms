@@ -19,6 +19,7 @@ const companiesRouter = require('./routes/companies');
 const messagesRouter = require('./routes/messages');
 const ttlockRouter = require('./routes/ttlock');
 const { startSync } = require('./services/syncService');
+const { startTTLockCron } = require('./services/ttlockService');
 
 app.use('/api/rooms', roomsRouter);
 app.use('/api/guests', guestsRouter);
@@ -44,6 +45,7 @@ mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
     console.log('✅ MongoDB verbunden');
     startSync();
+    startTTLockCron();
     app.listen(process.env.PORT, () => {
       console.log(`✅ Server läuft auf Port ${process.env.PORT}`);
     });
