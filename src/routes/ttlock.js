@@ -93,6 +93,30 @@ router.get('/locks', async (req, res) => {
 
 // ── POST /api/ttlock/locks/:lockId/assign ──────────────
 // Schloss einem Zimmer zuordnen
+// ── POST /api/ttlock/locks/:lockId/delete-code ─────────
+router.post('/locks/:lockId/delete-code', async (req, res) => {
+  try {
+    const { keyboardPwdId } = req.body;
+    if (!keyboardPwdId) return res.json({ success: false, error: 'keyboardPwdId required' });
+    const token = await getToken();
+    const lockId = parseInt(req.params.lockId);
+    const result = await ttlockPost('/v3/keyboardPwd/delete', {
+      clientId: CLIENT_ID, accessToken: token, lockId, keyboardPwdId, date: Date.now(),
+    });
+    // Auch Haupteingang löschen
+    const ENTRANCE = 3321320;
+    if (lockId !== ENTRANCE) {
+      await ttlockPost('/v3/keyboardPwd/delete', {
+        clientId: CLIENT_ID, accessToken: token, lockId: ENTRANCE, keyboardPwdId, date: Date.now(),
+      });
+    }
+    if (result.errcode) return res.json({ success: false, error: result.errmsg });
+    res.json({ success: true, message: 'Code gelöscht' });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
 // ── POST /api/ttlock/locks/:lockId/unlock ──────────────
 router.post('/locks/:lockId/unlock', async (req, res) => {
   try {
