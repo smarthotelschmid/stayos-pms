@@ -80,6 +80,61 @@ router.post('/', async (req, res) => {
       bookingNumber
     });
 
+    // Same-day Buchung → TTLock Code sofort generieren
+    try {
+      const today = new Date(); today.setHours(0,0,0,0);
+      const ciDate = new Date(checkIn); ciDate.setHours(0,0,0,0);
+      if (ciDate.getTime() === today.getTime()) {
+        const Settings = require('../models/Settings');
+        const settings = await Settings.findOne({ tenantId });
+        const lockEntry = (settings?.ttlock?.locks || []).find(l => l.roomId?.toString() === roomId);
+        if (lockEntry && settings?.ttlock?.accessToken) {
+          const token = await getToken();
+          const ENTRANCE_LOCK_ID = 3321320;
+          const checkInTime = settings.checkInTime || '15:00';
+          const checkOutTime = settings.checkOutTime || '11:00';
+
+          const [ciY,ciM,ciD] = checkIn.slice(0,10).split('-').map(Number);
+          const [coY,coM,coD] = checkOut.slice(0,10).split('-').map(Number);
+          const [ciH,ciMin] = checkInTime.split(':').map(Number);
+          const [coH,coMin] = checkOutTime.split(':').map(Number);
+          const startDate = new Date(ciY, ciM-1, ciD, ciH, ciMin).getTime();
+          const endDate = new Date(coY, coM-1, coD, coH, coMin).getTime();
+
+          const guestName = req.body.guestName || booking.bookingNumber;
+          const pwdParams = {
+            clientId: CLIENT_ID,
+            accessToken: token,
+            keyboardPwdType: 2,
+            startDate: startDate.toString(),
+            endDate: endDate.toString(),
+            keyboardPwdName: `${guestName} ${bookingNumber}`.trim(),
+            date: Date.now(),
+          };
+
+          const roomResult = await ttlockPost('/v3/keyboardPwd/get', { ...pwdParams, lockId: lockEntry.lockId });
+          const entranceResult = await ttlockPost('/v3/keyboardPwd/get', { ...pwdParams, lockId: ENTRANCE_LOCK_ID });
+
+          if (roomResult.keyboardPwd) {
+            await Booking.updateOne({ _id: booking._id }, { $set: {
+              'doorAccess.code': roomResult.keyboardPwd,
+              'doorAccess.roomKeyboardPwdId': roomResult.keyboardPwdId,
+              'doorAccess.entranceKeyboardPwdId': entranceResult.keyboardPwdId || null,
+              'doorAccess.roomLockId': lockEntry.lockId,
+              'doorAccess.entranceLockId': ENTRANCE_LOCK_ID,
+              'doorAccess.generatedAt': new Date(),
+              'doorAccess.validFrom': new Date(startDate),
+              'doorAccess.validTo': new Date(endDate),
+            }});
+            booking.doorAccess = { code: roomResult.keyboardPwd, roomLockId: lockEntry.lockId, entranceLockId: ENTRANCE_LOCK_ID };
+            console.log(`[TTLock] Same-day Buchung — Code sofort generiert: ${booking.roomName || roomId} → ${roomResult.keyboardPwd}`);
+          }
+        }
+      }
+    } catch (e) {
+      console.log(`[TTLock] Same-day Code Fehler: ${e.message}`);
+    }
+
     res.status(201).json({ success: true, data: booking });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
