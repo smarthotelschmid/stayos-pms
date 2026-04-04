@@ -7,10 +7,20 @@ const { getToken, ttlockPost, CLIENT_ID, TENANT_ID } = require('../services/ttlo
 const ENTRANCE_LOCK_ID = 3321320;
 
 // TTLock Code generieren für eine Buchung
+async function findLockForBooking(booking, settings) {
+  const Room = require('../models/Room');
+  const roomId = (booking.roomId?._id || booking.roomId)?.toString();
+  let lockEntry = (settings?.ttlock?.locks || []).find(l => l.roomId?.toString() === roomId);
+  if (!lockEntry && booking.roomName) {
+    const room = await Room.findOne({ tenantId: TENANT_ID, name: booking.roomName });
+    if (room) lockEntry = (settings?.ttlock?.locks || []).find(l => l.roomId?.toString() === room._id.toString());
+  }
+  return lockEntry;
+}
+
 async function generateCode(booking) {
   const settings = await Settings.findOne({ tenantId: TENANT_ID });
-  const roomId = (booking.roomId?._id || booking.roomId)?.toString();
-  const lockEntry = (settings?.ttlock?.locks || []).find(l => l.roomId?.toString() === roomId);
+  const lockEntry = await findLockForBooking(booking, settings);
   if (!lockEntry || !settings?.ttlock?.accessToken) return null;
 
   const token = await getToken();
