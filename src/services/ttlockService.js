@@ -126,8 +126,10 @@ async function generateDoorCodes() {
     }
 
     console.log(`[TTLock Cron] ${generated}/${bookings.length} Türcodes generiert für ${targetStr}`);
+    return { generated, total: bookings.length, date: targetStr };
   } catch (err) {
     console.error('[TTLock Cron] Fehler:', err.message);
+    return { generated: 0, total: 0, error: err.message };
   }
 }
 
