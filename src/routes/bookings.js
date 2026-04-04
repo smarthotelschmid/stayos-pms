@@ -27,12 +27,16 @@ async function generateCode(booking) {
   const checkInTime = settings.checkInTime || '15:00';
   const checkOutTime = settings.checkOutTime || '11:00';
 
-  const ci = booking.checkIn instanceof Date ? booking.checkIn : new Date(booking.checkIn);
-  const co = booking.checkOut instanceof Date ? booking.checkOut : new Date(booking.checkOut);
+  // Datum aus ISO-String extrahieren — Timezone-safe
+  const ciStr = (booking.checkIn instanceof Date ? booking.checkIn.toISOString() : booking.checkIn).slice(0, 10);
+  const coStr = (booking.checkOut instanceof Date ? booking.checkOut.toISOString() : booking.checkOut).slice(0, 10);
+  const [ciY, ciM, ciD] = ciStr.split('-').map(Number);
+  const [coY, coM, coD] = coStr.split('-').map(Number);
   const [ciH, ciMin] = checkInTime.split(':').map(Number);
   const [coH, coMin] = checkOutTime.split(':').map(Number);
-  const startDate = new Date(ci.getFullYear(), ci.getMonth(), ci.getDate(), ciH, ciMin).getTime();
-  const endDate = new Date(co.getFullYear(), co.getMonth(), co.getDate(), coH, coMin).getTime();
+  // Lokalzeit Vienna erstellen (new Date(y,m,d,h,min) = Lokalzeit)
+  const startDate = new Date(ciY, ciM - 1, ciD, ciH, ciMin).getTime();
+  const endDate = new Date(coY, coM - 1, coD, coH, coMin).getTime();
 
   const guestName = booking.guestName || booking.bookingNumber || 'Gast';
   const pwdParams = {
