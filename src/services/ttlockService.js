@@ -85,32 +85,43 @@ async function generateDoorCodes() {
       const ENTRANCE_LOCK_ID = 3321320;
       try {
         const pwdName = `${guestName} ${booking.bookingNumber || ''}`.trim();
+        function gen4Pin() {
+          for (let i = 0; i < 100; i++) {
+            const pin = String(1000 + Math.floor(Math.random() * 9000));
+            const d = pin.split('').map(Number);
+            const seq = d.every((v, i) => i === 0 || v === d[i-1] + 1) || d.every((v, i) => i === 0 || v === d[i-1] - 1);
+            const rep = d.every(v => v === d[0]);
+            if (!seq && !rep) return pin;
+          }
+          return '3947';
+        }
+        const customCode = gen4Pin();
         const pwdParams = {
           clientId: CLIENT_ID,
           accessToken: token,
-          keyboardPwdType: 2,
+          keyboardPwdType: 3, keyboardPwd: customCode, addType: 2,
           startDate: startDate.toString(),
           endDate: endDate.toString(),
           keyboardPwdName: pwdName,
           date: Date.now(),
         };
 
-        // PIN für Zimmer-Schloss generieren
-        const roomResult = await ttlockPost('/v3/keyboardPwd/get', { ...pwdParams, lockId });
-        if (!roomResult.keyboardPwd) {
+        // PIN für Zimmer-Schloss
+        const roomResult = await ttlockPost('/v3/keyboardPwd/add', { ...pwdParams, lockId });
+        if (!roomResult.keyboardPwdId) {
           console.log(`[TTLock Cron] Fehler Zimmer ${booking.roomName}: ${roomResult.errmsg || JSON.stringify(roomResult)}`);
           continue;
         }
 
-        // Gleichen PIN auch für Haupteingang generieren
-        const entranceResult = await ttlockPost('/v3/keyboardPwd/get', { ...pwdParams, lockId: ENTRANCE_LOCK_ID });
-        if (!entranceResult.keyboardPwd) {
+        // Gleichen PIN auch für Haupteingang
+        const entranceResult = await ttlockPost('/v3/keyboardPwd/add', { ...pwdParams, lockId: ENTRANCE_LOCK_ID });
+        if (!entranceResult.keyboardPwdId) {
           console.log(`[TTLock Cron] Warnung: Haupteingang-PIN fehlgeschlagen: ${entranceResult.errmsg}`);
         }
 
         await Booking.updateOne({ _id: booking._id }, {
           $set: {
-            'doorAccess.code': roomResult.keyboardPwd,
+            'doorAccess.stayosCode': customCode,
             'doorAccess.roomKeyboardPwdId': roomResult.keyboardPwdId,
             'doorAccess.entranceKeyboardPwdId': entranceResult.keyboardPwdId || null,
             'doorAccess.roomLockId': lockId,

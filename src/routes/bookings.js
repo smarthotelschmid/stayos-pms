@@ -39,20 +39,33 @@ async function generateCode(booking) {
   const endDate = new Date(coY, coM - 1, coD, coH, coMin).getTime();
 
   const guestName = booking.guestName || booking.bookingNumber || 'Gast';
+  // 4-stelliger Custom Code — keine fortlaufenden/wiederholenden Ziffern
+  function gen4Pin() {
+    for (let i = 0; i < 100; i++) {
+      const pin = String(1000 + Math.floor(Math.random() * 9000));
+      const d = pin.split('').map(Number);
+      const seq = d.every((v, i) => i === 0 || v === d[i-1] + 1) || d.every((v, i) => i === 0 || v === d[i-1] - 1);
+      const rep = d.every(v => v === d[0]);
+      if (!seq && !rep) return pin;
+    }
+    return '3947';
+  }
+  const customCode = gen4Pin();
+  const pwdName = `${guestName} ${booking.bookingNumber || ''}`.trim();
   const pwdParams = {
-    clientId: CLIENT_ID, accessToken: token, keyboardPwdType: 2,
+    clientId: CLIENT_ID, accessToken: token,
+    keyboardPwdType: 3, keyboardPwd: customCode, addType: 2,
     startDate: startDate.toString(), endDate: endDate.toString(),
-    keyboardPwdName: `${guestName} ${booking.bookingNumber || ''}`.trim(),
-    date: Date.now(),
+    keyboardPwdName: pwdName, date: Date.now(),
   };
 
-  const roomResult = await ttlockPost('/v3/keyboardPwd/get', { ...pwdParams, lockId: lockEntry.lockId });
-  if (!roomResult.keyboardPwd) return null;
+  const roomResult = await ttlockPost('/v3/keyboardPwd/add', { ...pwdParams, lockId: lockEntry.lockId });
+  if (!roomResult.keyboardPwdId) return null;
 
-  const entranceResult = await ttlockPost('/v3/keyboardPwd/get', { ...pwdParams, lockId: ENTRANCE_LOCK_ID });
+  const entranceResult = await ttlockPost('/v3/keyboardPwd/add', { ...pwdParams, lockId: ENTRANCE_LOCK_ID });
 
   const doorAccess = {
-    stayosCode: roomResult.keyboardPwd,
+    stayosCode: customCode,
     roomKeyboardPwdId: roomResult.keyboardPwdId,
     entranceKeyboardPwdId: entranceResult.keyboardPwdId || null,
     roomLockId: lockEntry.lockId,
