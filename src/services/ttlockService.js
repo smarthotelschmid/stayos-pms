@@ -31,20 +31,28 @@ function timeToCron(timeStr) {
 
 // ─── Template-Timing aus DB laden ────────────────────────────────────────────
 
+// generateTime = sendTime - 2h (automatisch, kein eigenes DB-Feld mehr)
+function calcGenerateTime(sendTime) {
+  const [h, m] = (sendTime || '06:00').split(':').map(Number);
+  const genH = ((h - 2) + 24) % 24;
+  return `${String(genH).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
 async function getDoorcodeTemplate() {
   try {
     const EmailTemplate = require('../models/EmailTemplate');
     const tpl = await EmailTemplate.findOne(
       { tenantId: TENANT_ID, type: 'doorcode' },
-      'generateTime sendTime daysBefore'
+      'sendTime daysBefore'
     ).lean();
+    const sendTime = tpl?.sendTime || '06:00';
     return {
-      generateTime: tpl?.generateTime || '00:00',
-      sendTime:     tpl?.sendTime     || '06:00',
-      daysBefore:   tpl?.daysBefore   !== undefined ? tpl.daysBefore : 1,
+      generateTime: calcGenerateTime(sendTime),
+      sendTime,
+      daysBefore:   tpl?.daysBefore !== undefined ? tpl.daysBefore : 1,
     };
   } catch {
-    return { generateTime: '00:00', sendTime: '06:00', daysBefore: 1 };
+    return { generateTime: '04:00', sendTime: '06:00', daysBefore: 1 };
   }
 }
 
