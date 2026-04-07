@@ -50,6 +50,7 @@ const guestSchema = new mongoose.Schema({
   companyName:   { type: String },
   companyId:     { type: mongoose.Schema.Types.ObjectId, ref: 'Company' },
   directBookingPotential: { type: Boolean, default: false },
+  isTestGuest: { type: Boolean, default: false },
   segment:       { type: String, enum: ['standard', 'vip', 'regular', 'problem', 'one_time'], default: 'standard' },
   specialNeeds:  [{ type: String, enum: ['allergiker', 'haustier', 'spaete_anreise', 'fruehes_checkout', 'rollstuhl'] }],
   vatId:         { type: String },

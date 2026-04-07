@@ -45,6 +45,11 @@ const settingsSchema = new mongoose.Schema({
       roomId: { type: mongoose.Schema.Types.ObjectId, ref: 'Room' },
     }],
   },
+
+  // Aktive Sprachen
+  languages: {
+    active: { type: [String], default: ['de'] },
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Settings', settingsSchema);

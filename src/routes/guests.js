@@ -123,6 +123,8 @@ router.put('/:id', async (req, res) => {
 // ── DELETE /api/guests/:id ────────────────────────────
 router.delete('/:id', async (req, res) => {
   try {
+    const check = await Guest.findById(req.params.id, 'isTestGuest');
+    if (check?.isTestGuest) return res.status(403).json({ success: false, error: 'Testgast kann nicht gelöscht werden' });
     const guest = await Guest.findByIdAndDelete(req.params.id);
     if (!guest) return res.status(404).json({ success: false, error: 'Gast nicht gefunden' });
     res.json({ success: true, message: 'Gast gelöscht' });
