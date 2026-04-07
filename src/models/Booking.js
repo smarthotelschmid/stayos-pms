@@ -214,6 +214,12 @@ const bookingSchema = new mongoose.Schema({
   contactEmail: { type: String },
   contactPhone: { type: String },
 
+  // Buchung verwalten / Stornieren Tokens
+  manageBookingToken: { type: String },
+  manageBookingTokenExpiry: { type: Date },
+  cancelToken: { type: String },
+  cancelTokenExpiry: { type: Date },
+
 // timestamps fügt createdAt und updatedAt automatisch hinzu
 }, { timestamps: true });
 
