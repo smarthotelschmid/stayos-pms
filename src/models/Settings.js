@@ -21,6 +21,8 @@ const settingsSchema = new mongoose.Schema({
     user: { type: String },
     pass: { type: String },
     fromName: { type: String },
+    bccAddress: { type: String },
+    bccEnabled: { type: Boolean, default: false },
     secure: { type: Boolean, default: true },
   },
 

@@ -12,11 +12,14 @@ async function getTransporter(tenantId) {
   }), settings };
 }
 
-async function sendEmail({ tenantId, to, subject, html }) {
+async function sendEmail({ tenantId, to, subject, html, bcc }) {
   const { transporter, settings } = await getTransporter(tenantId);
+  // Globale BCC aus Settings
+  const globalBcc = settings.smtp?.bccEnabled && settings.smtp?.bccAddress ? settings.smtp.bccAddress : null;
+  const allBcc = [bcc, globalBcc].filter(Boolean).join(', ') || undefined;
   return transporter.sendMail({
     from: `"${settings.smtp.fromName || 'STAYOS'}" <${settings.smtp.user}>`,
-    to, subject, html,
+    to, subject, html, ...(allBcc ? { bcc: allBcc } : {}),
   });
 }
 
