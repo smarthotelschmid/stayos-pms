@@ -32,8 +32,10 @@ router.put('/', async (req, res) => {
     for (const [key, val] of Object.entries(body)) {
       if (val && typeof val === 'object' && !Array.isArray(val) && !(val instanceof Date)) {
         for (const [subKey, subVal] of Object.entries(val)) {
-          if (key === 'smtp' && subKey === 'pass' && subVal === PASS_MASK) {
-            // Keep existing password
+          if (key === 'smtp' && subKey === 'pass' && (!subVal || subVal === PASS_MASK)) {
+            // Keep existing password — skip empty and masked
+          } else if (key === 'smtp' && ['host', 'user', 'fromName'].includes(subKey) && !subVal) {
+            // Skip empty smtp fields — don't overwrite with ''
           } else {
             update[`${key}.${subKey}`] = subVal;
           }
