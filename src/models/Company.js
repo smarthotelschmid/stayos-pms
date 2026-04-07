@@ -4,6 +4,7 @@ const companySchema = new mongoose.Schema({
   tenantId: { type: String, required: true },
 
   name: { type: String, required: true },
+  aliases: [{ type: String }],
   type: { type: String, enum: ['corporate', 'travel_agency', 'event', 'other'], default: 'corporate' },
 
   contactPerson: { type: String },
