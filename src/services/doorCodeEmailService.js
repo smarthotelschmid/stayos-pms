@@ -26,7 +26,6 @@ async function buildVars(booking, guest, settings) {
     guestPhone: guest?.phone || booking.contactPhone || '',
     guestLanguage: guest?.preferredLanguage || 'de',
     doorCode: booking.doorAccess?.stayosCode || booking.doorAccess?.code || '',
-    communityDoorCode: '1954',
     checkIn: fmtDateDE(booking.checkIn),
     checkOut: fmtDateDE(booking.checkOut),
     roomName: booking.roomName || '',
