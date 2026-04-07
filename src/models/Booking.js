@@ -219,6 +219,10 @@ const bookingSchema = new mongoose.Schema({
   manageBookingTokenExpiry: { type: Date },
   cancelToken: { type: String },
   cancelTokenExpiry: { type: Date },
+  guestPortalToken: { type: String },
+  guestPortalTokenExpiry: { type: Date },
+  earlyCheckIn: { type: String },
+  lateCheckOut: { type: String },
 
 // timestamps fügt createdAt und updatedAt automatisch hinzu
 }, { timestamps: true });

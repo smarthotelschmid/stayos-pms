@@ -45,6 +45,12 @@ router.get('/search', async (req, res) => {
 // Dedupliziert: gruppiert nach Name, behält Eintrag mit meisten Buchungen
 router.get('/', async (req, res) => {
   try {
+    // Testgast-Lookup
+    if (req.query.isTestGuest === 'true') {
+      const guest = await Guest.findOne({ isTestGuest: true });
+      return res.json({ success: true, data: guest ? [guest] : [] });
+    }
+
     // Batch-Lookup by IDs
     if (req.query.ids) {
       const idList = req.query.ids.split(',').map(id => id.trim()).filter(Boolean);
