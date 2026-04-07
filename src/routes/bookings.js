@@ -98,7 +98,7 @@ async function generateCode(booking) {
   };
 
   await Booking.updateOne({ _id: booking._id }, { $set: { doorAccess } });
-  console.log(`[TTLock] Code generiert: ${booking.roomName || roomId} → ${roomResult.keyboardPwd} (${guestName})`);
+  console.log(`[TTLock] Code generiert: ${booking.roomName || roomId} → ${customCode} (${guestName})`);
   return doorAccess;
 }
 
@@ -317,7 +317,9 @@ router.patch('/:id/status', async (req, res) => {
       console.log(`[TTLock] Status-Change Code Fehler: ${e.message}`);
     }
 
-    res.json({ success: true, data: booking });
+    // Booking nochmal laden damit doorAccess aktuell ist
+    const updated = await Booking.findById(booking._id);
+    res.json({ success: true, data: updated });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
   }

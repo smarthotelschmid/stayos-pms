@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const beds24 = require('../services/beds24Service');
+const { syncBookings } = require('../services/syncService');
 
 // POST /api/beds24/auth — Beds24 Authentifizierung mit Invite Code
 router.post('/beds24/auth', async (req, res) => {
@@ -68,6 +69,7 @@ router.get('/beds24/sync', async (req, res) => {
 // POST /api/webhooks/beds24 — Webhook Empfang
 router.post('/webhooks/beds24', (req, res) => {
   console.log('[Beds24 Webhook]', JSON.stringify(req.body, null, 2));
+  syncBookings().catch(e => console.log('[Beds24 Webhook] Sync Fehler:', e.message));
   res.status(200).json({ status: 'ok' });
 });
 
