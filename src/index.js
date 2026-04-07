@@ -18,6 +18,7 @@ const beds24Router = require('./routes/beds24');
 const companiesRouter = require('./routes/companies');
 const messagesRouter = require('./routes/messages');
 const ttlockRouter = require('./routes/ttlock');
+const emailTemplatesRouter = require('./routes/emailTemplates');
 const { startSync } = require('./services/syncService');
 const { startTTLockCron } = require('./services/ttlockService');
 
@@ -29,6 +30,7 @@ app.use('/api/settings', settingsRouter);
 app.use('/api/companies', companiesRouter);
 app.use('/api/messages', messagesRouter);
 app.use('/api/ttlock', ttlockRouter);
+app.use('/api/email-templates', emailTemplatesRouter);
 app.use('/api', beds24Router);
 
 // Test Route
