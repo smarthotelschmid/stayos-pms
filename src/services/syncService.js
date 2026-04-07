@@ -95,9 +95,12 @@ async function syncBookings() {
         guestId = guestResult.value?._id || guestResult._id;
         if (!guestResult.lastErrorObject?.updatedExisting) guestsCreated++;
 
-        // Link company to guest
+        // Link company to guest + directBookingPotential
         if (companyId && guestId) {
-          await Guest.updateOne({ _id: guestId }, { $set: { companyId } });
+          const companyDoc = await Company.findById(companyId, 'type').lean();
+          const hasContact = (guestData.email && !guestData.emailIsFake) || !!guestData.phone;
+          const dbp = companyDoc?.type === 'travel_agency' && hasContact;
+          await Guest.updateOne({ _id: guestId }, { $set: { companyId, ...(dbp ? { directBookingPotential: true } : {}) } });
         }
       }
 
