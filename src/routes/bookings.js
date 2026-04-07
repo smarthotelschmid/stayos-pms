@@ -148,6 +148,7 @@ router.get('/', async (req, res) => {
     const bookings = await Booking.find(filter)
       .populate('guestId', 'firstName lastName email phone')
       .populate('roomId', 'number name type pricePerNight floor maxGuests amenities')
+      .populate('companyId', 'name aliases')
       .sort({ checkIn: -1 })
       .skip(skip)
       .limit(limit);

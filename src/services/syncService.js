@@ -34,17 +34,29 @@ async function syncBookings() {
     let guestsCreated = 0;
 
     for (const b of allBookings) {
-      // Company upsert
+      // Company upsert — prüfe aliases zuerst
       let companyId = null;
       if (b.company) {
         const companyData = transformBeds24Company(b);
         if (companyData) {
-          const companyResult = await Company.findOneAndUpdate(
-            { name: companyData.name, tenantId: TENANT_ID },
-            { $set: companyData },
-            { upsert: true, new: true }
-          );
-          companyId = companyResult._id;
+          // Erst nach Name oder Alias suchen
+          let existing = await Company.findOne({
+            tenantId: TENANT_ID,
+            $or: [
+              { name: companyData.name },
+              { aliases: { $regex: new RegExp(`^${companyData.name}$`, 'i') } },
+            ]
+          });
+          if (existing) {
+            companyId = existing._id;
+          } else {
+            const companyResult = await Company.findOneAndUpdate(
+              { name: companyData.name, tenantId: TENANT_ID },
+              { $set: companyData },
+              { upsert: true, new: true }
+            );
+            companyId = companyResult._id;
+          }
         }
       }
 
