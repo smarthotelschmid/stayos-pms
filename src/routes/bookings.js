@@ -272,6 +272,7 @@ router.get('/search', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const booking = await Booking.findById(req.params.id)
+      .select('-checkInToken -checkInTokenExpiry')
       .populate('guestId', 'firstName lastName email phone')
       .populate('roomId', 'number name type pricePerNight floor maxGuests amenities');
     if (!booking) return res.status(404).json({ success: false, error: 'Buchung nicht gefunden' });
