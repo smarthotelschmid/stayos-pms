@@ -205,6 +205,25 @@ const bookingSchema = new mongoose.Schema({
   // Manuell überschrieben — Sync darf diese Buchung nicht mehr ändern
   manualOverride: { type: Boolean, default: false },
 
+  // Self Check-in
+  checkInToken: { type: String },
+  checkInTokenExpiry: { type: Date },
+  checkInCompleted: { type: Boolean, default: false },
+
+  // Kontaktdaten (kann von Gast-Email abweichen, z.B. Firmen-Email)
+  contactEmail: { type: String },
+  contactPhone: { type: String },
+
+  // Buchung verwalten / Stornieren Tokens
+  manageBookingToken: { type: String },
+  manageBookingTokenExpiry: { type: Date },
+  cancelToken: { type: String },
+  cancelTokenExpiry: { type: Date },
+  guestPortalToken: { type: String },
+  guestPortalTokenExpiry: { type: Date },
+  earlyCheckIn: { type: String },
+  lateCheckOut: { type: String },
+
 // timestamps fügt createdAt und updatedAt automatisch hinzu
 }, { timestamps: true });
 
