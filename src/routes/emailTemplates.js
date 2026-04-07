@@ -3,6 +3,23 @@ const router = express.Router();
 const EmailTemplate = require('../models/EmailTemplate');
 
 const TENANT_ID = '507f1f77bcf86cd799439011';
+const { sendEmail } = require('../services/emailService');
+
+// POST /api/email-templates/test — Test-Email senden
+router.post('/test', async (req, res) => {
+  try {
+    const { to, subject, html, bcc } = req.body;
+    if (!to) return res.json({ success: false, error: 'Empfänger fehlt' });
+    await sendEmail({
+      tenantId: TENANT_ID, to, subject: subject || 'STAYOS Test',
+      html: html || '<p>Test</p>',
+      ...(bcc ? { bcc } : {}),
+    });
+    res.json({ success: true, message: `Test gesendet an ${to}` });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
 
 // GET /api/email-templates/:type
 router.get('/:type', async (req, res) => {
