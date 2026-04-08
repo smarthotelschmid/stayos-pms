@@ -38,6 +38,8 @@ async function buildVars(booking, guest, settings) {
     hotelAddress: settings?.location || 'Sitzenberg, NÖ',
     hotelPhone: settings?.hotelPhone || '',
     hotelEmail: settings?.smtp?.user || '',
+    effectiveCheckInTime: booking.earlyCheckIn || settings?.checkInTime || '15:00',
+    effectiveCheckOutTime: booking.lateCheckOut || settings?.checkOutTime || '11:00',
     guestPortalLink: booking.guestPortalToken ? `https://stayos.at/portal/${booking.guestPortalToken}` : '',
   };
 }
