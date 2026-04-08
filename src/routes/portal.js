@@ -3,6 +3,7 @@ const router = express.Router();
 const Booking = require('../models/Booking');
 const Settings = require('../models/Settings');
 const { getToken, ttlockPost, CLIENT_ID } = require('../services/ttlockHelper');
+const { formatAddress } = require('../utils/formatAddress');
 
 const TENANT_ID = '507f1f77bcf86cd799439011';
 const ENTRANCE_LOCK_ID = 3321320;
@@ -40,7 +41,7 @@ router.get('/:token', async (req, res) => {
 
     const settings = await Settings.findOne(
       { tenantId: TENANT_ID },
-      'hotelName address whatsapp houseRules checkInTime checkOutTime googleMapsUrl'
+      'hotelName hotelStreet hotelStreetNo hotelZip hotelCity hotelCountry hotelPhone hotelEmail hotelWebsite whatsapp receptionHours houseRules checkInTime checkOutTime googleMapsUrl'
     ).lean();
 
     // Nächte berechnen
@@ -67,9 +68,12 @@ router.get('/:token', async (req, res) => {
         status: booking.status,
         roomLockId: booking.doorAccess?.roomLockId || null,
         hotelName: settings?.hotelName || '',
-        address: settings?.address || '',
+        address: formatAddress(settings),
         googleMapsUrl: settings?.googleMapsUrl || '',
         whatsapp: settings?.whatsapp || '',
+        hotelPhone: settings?.hotelPhone || '',
+        hotelEmail: settings?.hotelEmail || '',
+        receptionHours: settings?.receptionHours || '',
         houseRules: settings?.houseRules || [],
         checkInTime: settings?.checkInTime || '15:00',
         checkOutTime: settings?.checkOutTime || '11:00',

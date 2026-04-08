@@ -3,6 +3,7 @@ const Guest = require('../models/Guest');
 const EmailTemplate = require('../models/EmailTemplate');
 const Settings = require('../models/Settings');
 const { sendEmail } = require('./emailService');
+const { formatAddress } = require('../utils/formatAddress');
 
 const TENANT_ID = '507f1f77bcf86cd799439011';
 
@@ -35,7 +36,7 @@ async function buildVars(booking, guest, settings) {
     mealPlan: booking.mealPlan || '',
     arrivalTime: settings?.checkInTime || '15:00',
     hotelName: settings?.hotelName || 'smarthotel schmid',
-    hotelAddress: settings?.location || 'Sitzenberg, NÖ',
+    hotelAddress: formatAddress(settings) || settings?.location || '',
     hotelPhone: settings?.hotelPhone || '',
     hotelEmail: settings?.hotelEmail || settings?.smtp?.user || '',
     hotelWebsite: settings?.hotelWebsite || '',

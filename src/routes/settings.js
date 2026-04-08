@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Settings = require('../models/Settings');
 const nodemailer = require('nodemailer');
+const { formatAddress } = require('../utils/formatAddress');
 
 const TENANT_ID = '507f1f77bcf86cd799439011';
 const PASS_MASK = '••••••••';
@@ -16,6 +17,7 @@ router.get('/', async (req, res) => {
     const obj = settings.toObject();
     // SMTP Passwort nie ans Frontend senden
     if (obj.smtp?.pass) obj.smtp.pass = PASS_MASK;
+    obj.formattedAddress = formatAddress(obj);
     res.json({ success: true, data: obj });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
