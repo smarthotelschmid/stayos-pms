@@ -299,6 +299,22 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// ── PATCH /api/bookings/:id — partielle Updates ───────
+router.patch('/:id', async (req, res) => {
+  try {
+    const update = {};
+    for (const [key, val] of Object.entries(req.body)) {
+      if (key.includes('.')) update[key] = val;
+      else update[key] = val;
+    }
+    const booking = await Booking.findByIdAndUpdate(req.params.id, { $set: update }, { new: true });
+    if (!booking) return res.status(404).json({ success: false, error: 'Buchung nicht gefunden' });
+    res.json({ success: true, data: booking });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
 // ── PATCH /api/bookings/:id/status ────────────────────
 router.patch('/:id/status', async (req, res) => {
   try {

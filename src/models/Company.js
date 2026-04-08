@@ -12,10 +12,11 @@ const companySchema = new mongoose.Schema({
   contactPhone: { type: String },
 
   address: {
-    street: { type: String },
-    zip: { type: String },
-    city: { type: String },
-    country: { type: String }
+    street:   { type: String },
+    streetNo: { type: String },
+    zip:      { type: String },
+    city:     { type: String },
+    country:  { type: String },
   },
 
   vatId: { type: String },
