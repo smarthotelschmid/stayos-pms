@@ -232,4 +232,82 @@ router.get('/status', async (req, res) => {
   }
 });
 
+// ── POST /api/ttlock/webhook — TTLock Lock-Event Callback ──
+// Öffentlich — kein Auth. TTLock sendet bei Türöffnung.
+const Booking = require('../models/Booking');
+const _webhookSeen = new Map();
+
+router.post('/webhook', async (req, res) => {
+  // IMMER 200 — TTLock macht sonst Retry-Loop
+  res.json({ success: true });
+
+  try {
+    const { lockId, recordType, success, keyboardPwdId } = req.body;
+
+    // Nur PIN-Öffnung (recordType 1) + erfolgreich
+    if (recordType !== 1 || success !== 1) return;
+
+    // Deduplizierung: gleiche lockId+keyboardPwdId nicht doppelt innerhalb 30s
+    const dedupeKey = `${lockId}:${keyboardPwdId}`;
+    if (_webhookSeen.has(dedupeKey)) return;
+    _webhookSeen.set(dedupeKey, Date.now());
+    setTimeout(() => _webhookSeen.delete(dedupeKey), 60000);
+
+    // Booking finden: confirmed + roomLockId + checkIn <= heute <= checkOut + nicht schon checked-in
+    const now = new Date();
+    const today = new Date(now); today.setHours(0, 0, 0, 0);
+    const booking = await Booking.findOne({
+      tenantId: TENANT_ID,
+      'doorAccess.roomLockId': lockId,
+      status: 'confirmed',
+      checkedInAt: { $exists: false },
+      checkIn: { $lte: now },
+      checkOut: { $gt: today },
+    });
+
+    if (!booking) {
+      console.log(`[TTLock Webhook] Kein passende Buchung für lockId ${lockId}`);
+      return;
+    }
+
+    await Booking.updateOne({ _id: booking._id }, {
+      $set: { status: 'checked-in', checkedInAt: now }
+    });
+
+    console.log(`[TTLock Webhook] Auto Check-in: ${booking.bookingNumber} ${booking.guestName} (${booking.roomName})`);
+  } catch (err) {
+    console.error('[TTLock Webhook] Fehler:', err.message);
+  }
+});
+
+// ── POST /api/ttlock/webhook/test — Webhook simulieren (nur lokal) ──
+if (process.env.NODE_ENV !== 'production') {
+  router.post('/webhook/test', async (req, res) => {
+    try {
+      const { lockId } = req.body;
+      if (!lockId) return res.json({ success: false, error: 'lockId erforderlich' });
+
+      const now = new Date();
+      const today = new Date(now); today.setHours(0, 0, 0, 0);
+      const booking = await Booking.findOne({
+        tenantId: TENANT_ID,
+        'doorAccess.roomLockId': lockId,
+        status: 'confirmed',
+        checkIn: { $lte: now },
+        checkOut: { $gt: today },
+      });
+
+      if (!booking) return res.json({ success: false, error: 'Keine passende Buchung' });
+
+      await Booking.updateOne({ _id: booking._id }, {
+        $set: { status: 'checked-in', checkedInAt: now }
+      });
+
+      res.json({ success: true, message: `Auto Check-in: ${booking.bookingNumber} ${booking.guestName}` });
+    } catch (err) {
+      res.json({ success: false, error: err.message });
+    }
+  });
+}
+
 module.exports = router;
