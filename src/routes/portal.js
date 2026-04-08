@@ -67,7 +67,7 @@ router.get('/:token', async (req, res) => {
         status: booking.status,
         roomLockId: booking.doorAccess?.roomLockId || null,
         hotelName: settings?.hotelName || 'smarthotel schmid',
-        address: settings?.address || 'Schlossbergstraße 22, 3454 Sitzenberg-Reidling',
+        address: settings?.address || 'Schlossbergstraße 20, 3454 Sitzenberg-Reidling',
         whatsapp: settings?.whatsapp || '+436776203587',
         houseRules: settings?.houseRules || [],
         checkInTime: settings?.checkInTime || '15:00',
