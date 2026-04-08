@@ -4,6 +4,8 @@ const Guest = require('../models/Guest');
 const beds24 = require('./beds24Service');
 const { BEDS24_ROOM_MAPPING: ROOM_MAPPING, UNIT_TO_ROOM } = require('./roomMapping');
 const Company = require('../models/Company');
+const Room = require('../models/Room');
+const Settings = require('../models/Settings');
 const { transformBeds24Booking, transformBeds24Guest, transformBeds24Company, isEmailFake } = require('./dataTransformer');
 
 const SYNC_INTERVAL = 30 * 60 * 1000; // 30 Minuten
@@ -125,6 +127,19 @@ async function syncBookings() {
         { $set: updateData, $setOnInsert: { bookingNumber, guestPortalToken: crypto.randomBytes(32).toString('hex') } },
         { upsert: true, new: true, includeResultMetadata: true }
       );
+
+      // roomId + roomLockId zuweisen/aktualisieren wenn roomName vorhanden
+      const savedBooking = result.value;
+      if (savedBooking?.roomName && (!savedBooking.roomId || (existing && existing.roomName !== savedBooking.roomName))) {
+        const room = await Room.findOne({ name: savedBooking.roomName, tenantId: TENANT_ID }).lean();
+        if (room) {
+          const roomUpdate = { roomId: room._id };
+          const settings = await Settings.findOne({ tenantId: TENANT_ID }, 'ttlock.locks').lean();
+          const lock = (settings?.ttlock?.locks || []).find(l => l.roomId?.toString() === room._id.toString());
+          if (lock) roomUpdate['doorAccess.roomLockId'] = lock.lockId;
+          await Booking.updateOne({ _id: savedBooking._id }, { $set: roomUpdate });
+        }
+      }
 
       // Link booking to guest
       if (guestId && result.value?._id) {
