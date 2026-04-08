@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const router = express.Router();
 const Booking = require('../models/Booking');
 const Settings = require('../models/Settings');
@@ -223,7 +224,8 @@ router.post('/', async (req, res) => {
     const booking = await Booking.create({
       ...req.body,
       guestId,
-      bookingNumber
+      bookingNumber,
+      guestPortalToken: crypto.randomBytes(32).toString('hex'),
     });
 
     // Bei confirmed: TTLock Code sofort generieren

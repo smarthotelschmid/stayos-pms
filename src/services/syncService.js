@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const Booking = require('../models/Booking');
 const Guest = require('../models/Guest');
 const beds24 = require('./beds24Service');
@@ -121,7 +122,7 @@ async function syncBookings() {
 
       const result = await Booking.findOneAndUpdate(
         { beds24BookingId: b.id },
-        { $set: updateData, $setOnInsert: { bookingNumber } },
+        { $set: updateData, $setOnInsert: { bookingNumber, guestPortalToken: crypto.randomBytes(32).toString('hex') } },
         { upsert: true, new: true, includeResultMetadata: true }
       );
 
