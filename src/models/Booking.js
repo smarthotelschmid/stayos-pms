@@ -88,6 +88,10 @@ const bookingSchema = new mongoose.Schema({
     pricePerPersonPerNight: { type: Number, default: 0 },
   },
 
+  mealPlan:         { type: String },
+  guestNotes:       { type: String },
+  rateDescription:  { type: String },
+
   // ── EXTRAS ────────────────────────────────────────────
   
   // Array von gebuchten Extras

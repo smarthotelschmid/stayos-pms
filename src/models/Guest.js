@@ -39,10 +39,11 @@ const guestSchema = new mongoose.Schema({
 
   // ── ADRESSE ───────────────────────────────────────────
   address: {
-    street:  { type: String },
-    zip:     { type: String },
-    city:    { type: String },
-    country: { type: String },
+    street:   { type: String },
+    streetNo: { type: String },
+    zip:      { type: String },
+    city:     { type: String },
+    country:  { type: String },
   },
 
   // ── BUSINESS GAST ───────────────────────────────────
