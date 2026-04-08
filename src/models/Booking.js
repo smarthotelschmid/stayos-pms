@@ -213,6 +213,8 @@ const bookingSchema = new mongoose.Schema({
   checkInToken: { type: String },
   checkInTokenExpiry: { type: Date },
   checkInCompleted: { type: Boolean, default: false },
+  checkedInAt: { type: Date },
+  checkedOutAt: { type: Date },
 
   // Kontaktdaten (kann von Gast-Email abweichen, z.B. Firmen-Email)
   contactEmail: { type: String },
