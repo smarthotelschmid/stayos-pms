@@ -40,7 +40,7 @@ router.get('/:token', async (req, res) => {
 
     const settings = await Settings.findOne(
       { tenantId: TENANT_ID },
-      'hotelName address whatsapp houseRules checkInTime checkOutTime'
+      'hotelName address whatsapp houseRules checkInTime checkOutTime googleMapsUrl'
     ).lean();
 
     // Nächte berechnen
@@ -68,6 +68,7 @@ router.get('/:token', async (req, res) => {
         roomLockId: booking.doorAccess?.roomLockId || null,
         hotelName: settings?.hotelName || '',
         address: settings?.address || '',
+        googleMapsUrl: settings?.googleMapsUrl || '',
         whatsapp: settings?.whatsapp || '',
         houseRules: settings?.houseRules || [],
         checkInTime: settings?.checkInTime || '15:00',
