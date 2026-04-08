@@ -38,6 +38,7 @@ async function buildVars(booking, guest, settings) {
     hotelAddress: settings?.location || 'Sitzenberg, NÖ',
     hotelPhone: settings?.hotelPhone || '',
     hotelEmail: settings?.smtp?.user || '',
+    guestPortalLink: booking.guestPortalToken ? `https://stayos.at/portal/${booking.guestPortalToken}` : '',
   };
 }
 
