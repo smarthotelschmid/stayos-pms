@@ -100,7 +100,16 @@ router.get('/hotel', async (req, res) => {
 router.get('/:type', async (req, res) => {
   try {
     const template = await EmailTemplate.findOne({ tenantId: TENANT_ID, type: req.params.type });
-    res.json({ success: true, data: template || { type: req.params.type, subject: {}, contentJson: {}, contentHtml: {}, contentText: {} } });
+    res.json({
+      success: true,
+      data: template || {
+        type: req.params.type,
+        subject: {}, contentJson: {}, contentHtml: {}, contentText: {},
+        generateTime: '00:00',
+        sendTime: '06:00',
+        daysBefore: 1,
+      }
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -109,18 +118,37 @@ router.get('/:type', async (req, res) => {
 // POST /api/email-templates/:type
 router.post('/:type', async (req, res) => {
   try {
-    const { lang, subject, contentJson, contentHtml, contentText } = req.body;
+    const { lang, subject, contentJson, contentHtml, contentText, generateTime, sendTime, daysBefore } = req.body;
     const l = lang || 'de';
     const update = {};
-    if (subject !== undefined) update[`subject.${l}`] = subject;
+
+    // Sprachabhängige Felder
+    if (subject !== undefined)     update[`subject.${l}`]     = subject;
     if (contentJson !== undefined) update[`contentJson.${l}`] = contentJson;
     if (contentHtml !== undefined) update[`contentHtml.${l}`] = contentHtml;
     if (contentText !== undefined) update[`contentText.${l}`] = contentText;
+
+    // Timing-Felder — sprachunabhängig, nur setzen wenn explizit übergeben
+    if (generateTime !== undefined) update.generateTime = generateTime;
+    if (sendTime !== undefined)     update.sendTime     = sendTime;
+    if (daysBefore !== undefined)   update.daysBefore   = Number(daysBefore);
+
     const template = await EmailTemplate.findOneAndUpdate(
       { tenantId: TENANT_ID, type: req.params.type },
       { $set: update },
       { upsert: true, new: true }
     );
+
+    // Crons neustarten wenn Timing geändert wurde
+    if (req.params.type === 'doorcode' && (generateTime !== undefined || sendTime !== undefined || daysBefore !== undefined)) {
+      try {
+        const { restartGenerateCron } = require('../services/ttlockService');
+        await restartGenerateCron();
+        const restartEmailCron = req.app.get('restartEmailCron');
+        if (restartEmailCron) await restartEmailCron();
+      } catch (e) { console.log('[EmailTemplates] Cron-Restart:', e.message); }
+    }
+
     res.json({ success: true, data: template });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

@@ -2,9 +2,10 @@ const cron = require('node-cron');
 const Settings = require('../models/Settings');
 const Booking = require('../models/Booking');
 const { getToken, ttlockPost, CLIENT_ID, TENANT_ID } = require('./ttlockHelper');
+const { sendDoorCodeEmail } = require('./doorCodeEmailService');
 
-// Zeitstring "15:00" + Datum → Unix Timestamp in ms
-// Vienna Timezone korrekt — TTLock erwartet UTC-Timestamp
+// ─── Hilfsfunktionen ──────────────────────────────────────────────────────────
+
 function timeToUnix(dateStr, timeStr) {
   const [y, m, d] = dateStr.slice(0, 10).split('-').map(Number);
   const [h, min] = (timeStr || '15:00').split(':').map(Number);
@@ -15,13 +16,47 @@ function timeToUnix(dateStr, timeStr) {
   return utcMs - offsetH * 3600000;
 }
 
-// Datum als YYYY-MM-DD
 function fmtDate(date) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 }
+
+// "06:30" → cron expression "30 6 * * *"
+function timeToCron(timeStr) {
+  const [h, m] = (timeStr || '00:00').split(':').map(Number);
+  return `${m || 0} ${h || 0} * * *`;
+}
+
+// ─── Template-Timing aus DB laden ────────────────────────────────────────────
+
+// generateTime = sendTime - 2h (automatisch, kein eigenes DB-Feld mehr)
+function calcGenerateTime(sendTime) {
+  const [h, m] = (sendTime || '06:00').split(':').map(Number);
+  const genH = ((h - 2) + 24) % 24;
+  return `${String(genH).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+async function getDoorcodeTemplate() {
+  try {
+    const EmailTemplate = require('../models/EmailTemplate');
+    const tpl = await EmailTemplate.findOne(
+      { tenantId: TENANT_ID, type: 'doorcode' },
+      'sendTime daysBefore'
+    ).lean();
+    const sendTime = tpl?.sendTime || '06:00';
+    return {
+      generateTime: calcGenerateTime(sendTime),
+      sendTime,
+      daysBefore:   tpl?.daysBefore !== undefined ? tpl.daysBefore : 1,
+    };
+  } catch {
+    return { generateTime: '04:00', sendTime: '06:00', daysBefore: 1 };
+  }
+}
+
+// ─── Türcodes generieren ──────────────────────────────────────────────────────
 
 async function generateDoorCodes() {
   try {
@@ -31,8 +66,8 @@ async function generateDoorCodes() {
       return;
     }
 
-    const daysBefore = settings.doorCodeDaysBefore || 1;
-    const checkInTime = settings.checkInTime || '15:00';
+    const { daysBefore, sendTime } = await getDoorcodeTemplate();
+    const checkInTime  = settings.checkInTime  || '15:00';
     const checkOutTime = settings.checkOutTime || '11:00';
 
     // Ziel-Datum: heute + daysBefore
@@ -40,15 +75,14 @@ async function generateDoorCodes() {
     targetDate.setDate(targetDate.getDate() + daysBefore);
     const targetStr = fmtDate(targetDate);
 
-    // Buchungen finden: checkIn am Ziel-Datum, kein doorAccess.code
     const targetStart = new Date(targetDate); targetStart.setHours(0, 0, 0, 0);
-    const targetEnd = new Date(targetDate); targetEnd.setHours(23, 59, 59, 999);
+    const targetEnd   = new Date(targetDate); targetEnd.setHours(23, 59, 59, 999);
 
     const bookings = await Booking.find({
       tenantId: TENANT_ID,
       checkIn: { $gte: targetStart, $lte: targetEnd },
       status: { $in: ['confirmed', 'checked-in'] },
-      'doorAccess.code': { $exists: false },
+      'doorAccess.stayosCode': { $exists: false },
     });
 
     if (bookings.length === 0) {
@@ -56,21 +90,40 @@ async function generateDoorCodes() {
       return;
     }
 
-    // TTLock Schlösser-Zuordnung laden
     const lockMap = {};
     (settings.ttlock?.locks || []).forEach(l => {
       if (l.roomId) lockMap[l.roomId.toString()] = l.lockId;
     });
 
     let token;
-    try {
-      token = await getToken();
-    } catch (e) {
-      console.log('[TTLock Cron] Kein Token:', e.message);
-      return;
+    try { token = await getToken(); }
+    catch (e) { console.log('[TTLock Cron] Kein Token:', e.message); return; }
+
+    function gen4Pin(phone) {
+      if (phone) {
+        const digits = phone.replace(/\D/g, '');
+        if (digits.length >= 4) {
+          const last4 = digits.slice(-4);
+          const d = last4.split('').map(Number);
+          const seq = d.every((v, i) => i === 0 || v === d[i-1] + 1) || d.every((v, i) => i === 0 || v === d[i-1] - 1);
+          const rep = d.every(v => v === d[0]);
+          if (!seq && !rep) return last4;
+        }
+      }
+      for (let i = 0; i < 100; i++) {
+        const pin = String(1000 + Math.floor(Math.random() * 9000));
+        const d = pin.split('').map(Number);
+        const seq = d.every((v, i) => i === 0 || v === d[i-1] + 1) || d.every((v, i) => i === 0 || v === d[i-1] - 1);
+        const rep = d.every(v => v === d[0]);
+        if (!seq && !rep) return pin;
+      }
+      return '3947';
     }
 
+    const Guest = require('../models/Guest');
+    const ENTRANCE_LOCK_ID = 3321320;
     let generated = 0;
+
     for (const booking of bookings) {
       const roomId = (booking.roomId?._id || booking.roomId)?.toString();
       const lockId = lockMap[roomId];
@@ -79,59 +132,35 @@ async function generateDoorCodes() {
         continue;
       }
 
-      const checkIn = booking.checkIn instanceof Date ? fmtDate(booking.checkIn) : booking.checkIn.slice(0, 10);
+      const checkIn  = booking.checkIn  instanceof Date ? fmtDate(booking.checkIn)  : booking.checkIn.slice(0, 10);
       const checkOut = booking.checkOut instanceof Date ? fmtDate(booking.checkOut) : booking.checkOut.slice(0, 10);
-      const startDate = timeToUnix(checkIn, checkInTime);
-      const endDate = timeToUnix(checkOut, checkOutTime);
-
+      const startDate = timeToUnix(checkIn,  checkInTime);
+      const endDate   = timeToUnix(checkOut, checkOutTime);
       const guestName = booking.guestName || booking.bookingNumber || 'Gast';
 
-      const ENTRANCE_LOCK_ID = 3321320;
       try {
         const pwdName = `${guestName} ${booking.bookingNumber || ''}`.trim();
-        function gen4Pin(phone) {
-          if (phone) {
-            const digits = phone.replace(/\D/g, '');
-            if (digits.length >= 4) {
-              const last4 = digits.slice(-4);
-              const d = last4.split('').map(Number);
-              const seq = d.every((v, i) => i === 0 || v === d[i-1] + 1) || d.every((v, i) => i === 0 || v === d[i-1] - 1);
-              const rep = d.every(v => v === d[0]);
-              if (!seq && !rep) return last4;
-            }
-          }
-          for (let i = 0; i < 100; i++) {
-            const pin = String(1000 + Math.floor(Math.random() * 9000));
-            const d = pin.split('').map(Number);
-            const seq = d.every((v, i) => i === 0 || v === d[i-1] + 1) || d.every((v, i) => i === 0 || v === d[i-1] - 1);
-            const rep = d.every(v => v === d[0]);
-            if (!seq && !rep) return pin;
-          }
-          return '3947';
-        }
-        const Guest = require('../models/Guest');
         const guestId = (booking.guestId?._id || booking.guestId)?.toString();
         let phone = null;
-        if (guestId) { const g = await Guest.findById(guestId, 'phone').lean(); phone = g?.phone; }
+        if (guestId) {
+          const g = await Guest.findById(guestId, 'phone').lean();
+          phone = g?.phone;
+        }
         const customCode = gen4Pin(phone);
+
         const pwdParams = {
-          clientId: CLIENT_ID,
-          accessToken: token,
+          clientId: CLIENT_ID, accessToken: token,
           keyboardPwdType: 3, keyboardPwd: customCode, addType: 2,
-          startDate: startDate.toString(),
-          endDate: endDate.toString(),
-          keyboardPwdName: pwdName,
-          date: Date.now(),
+          startDate: startDate.toString(), endDate: endDate.toString(),
+          keyboardPwdName: pwdName, date: Date.now(),
         };
 
-        // PIN für Zimmer-Schloss
         const roomResult = await ttlockPost('/v3/keyboardPwd/add', { ...pwdParams, lockId });
         if (!roomResult.keyboardPwdId) {
           console.log(`[TTLock Cron] Fehler Zimmer ${booking.roomName}: ${roomResult.errmsg || JSON.stringify(roomResult)}`);
           continue;
         }
 
-        // Gleichen PIN auch für Haupteingang
         const entranceResult = await ttlockPost('/v3/keyboardPwd/add', { ...pwdParams, lockId: ENTRANCE_LOCK_ID });
         if (!entranceResult.keyboardPwdId) {
           console.log(`[TTLock Cron] Warnung: Haupteingang-PIN fehlgeschlagen: ${entranceResult.errmsg}`);
@@ -139,18 +168,29 @@ async function generateDoorCodes() {
 
         await Booking.updateOne({ _id: booking._id }, {
           $set: {
-            'doorAccess.stayosCode': customCode,
-            'doorAccess.roomKeyboardPwdId': roomResult.keyboardPwdId,
+            'doorAccess.stayosCode':            customCode,
+            'doorAccess.roomKeyboardPwdId':     roomResult.keyboardPwdId,
             'doorAccess.entranceKeyboardPwdId': entranceResult.keyboardPwdId || null,
-            'doorAccess.roomLockId': lockId,
-            'doorAccess.entranceLockId': ENTRANCE_LOCK_ID,
-            'doorAccess.generatedAt': new Date(),
-            'doorAccess.validFrom': new Date(startDate),
-            'doorAccess.validTo': new Date(endDate),
+            'doorAccess.roomLockId':            lockId,
+            'doorAccess.entranceLockId':        ENTRANCE_LOCK_ID,
+            'doorAccess.generatedAt':           new Date(),
+            'doorAccess.validFrom':             new Date(startDate),
+            'doorAccess.validTo':               new Date(endDate),
           }
         });
         generated++;
-        console.log(`[TTLock Cron] PIN generiert: ${booking.roomName} + Haupteingang → ${roomResult.keyboardPwd} (${guestName})`);
+        console.log(`[TTLock Cron] PIN generiert: ${booking.roomName} + Haupteingang → ${customCode} (${guestName})`);
+
+        // Same-day Buchungen (daysBefore=0): Email sofort, nicht auf sendTime-Cron warten
+        if (daysBefore === 0) {
+          const guestForEmail = guestId ? await Guest.findById(guestId, 'email emailIsFake').lean() : null;
+          const emailAddr = booking.contactEmail || guestForEmail?.email;
+          if (emailAddr && !guestForEmail?.emailIsFake && !booking.communication?.doorCodeSent) {
+            sendDoorCodeEmail(booking._id).catch(e =>
+              console.error(`[TTLock→Email] ${booking.bookingNumber}:`, e.message)
+            );
+          }
+        }
 
       } catch (e) {
         console.log(`[TTLock Cron] Fehler für ${booking.roomName}: ${e.message}`);
@@ -164,6 +204,8 @@ async function generateDoorCodes() {
     return { generated: 0, total: 0, error: err.message };
   }
 }
+
+// ─── Zeitsynchronisierung ─────────────────────────────────────────────────────
 
 const ALL_LOCKS = [
   3321320, 2720122, 2720112, 2521990, 2522158, 2720132, 2720138,
@@ -181,7 +223,6 @@ async function syncLockTime() {
         });
         if (result.date && !result.errcode) { ok++; }
         else {
-          // Retry einmal nach 3s
           await new Promise(r => setTimeout(r, 3000));
           const retry = await ttlockPost('/v3/lock/updateDate', {
             clientId: CLIENT_ID, accessToken: token, lockId, date: Date.now(),
@@ -196,18 +237,41 @@ async function syncLockTime() {
   }
 }
 
-function startTTLockCron() {
-  // Täglich um 03:00 — Zeitsynchronisierung
+// ─── Dynamischer Cron-Start ───────────────────────────────────────────────────
+
+let _generateCronTask = null;
+
+async function startTTLockCron() {
+  // Zeitsync täglich 03:00 — fix
   cron.schedule('0 3 * * *', () => {
-    console.log('[TTLock TimeSync] Starte tägliche Zeitsynchronisierung...');
+    console.log('[TTLock TimeSync] Starte Zeitsynchronisierung...');
     syncLockTime();
-  });
-  // Täglich um 09:00 — Türcodes generieren
-  cron.schedule('0 9 * * *', () => {
-    console.log('[TTLock Cron] Starte tägliche Türcode-Generierung...');
+  }, { timezone: 'Europe/Vienna' });
+
+  // Türcode-Generierung — Zeit aus DB laden
+  const { generateTime } = await getDoorcodeTemplate();
+  const expr = timeToCron(generateTime);
+
+  _generateCronTask = cron.schedule(expr, () => {
+    console.log(`[TTLock Cron] Türcode-Generierung (${generateTime})...`);
     generateDoorCodes();
-  });
-  console.log('[TTLock Cron] Gestartet — TimeSync 03:00, Türcodes 09:00');
+  }, { timezone: 'Europe/Vienna' });
+
+  console.log(`[TTLock Cron] Gestartet — TimeSync 03:00, Türcodes ${generateTime}`);
+  return { generateTime };
 }
 
-module.exports = { startTTLockCron, generateDoorCodes, syncLockTime };
+// Neustart des Crons nach Timing-Änderung im UI
+async function restartGenerateCron() {
+  if (_generateCronTask) { _generateCronTask.stop(); _generateCronTask = null; }
+  const { generateTime } = await getDoorcodeTemplate();
+  const expr = timeToCron(generateTime);
+  _generateCronTask = cron.schedule(expr, () => {
+    console.log(`[TTLock Cron] Türcode-Generierung (${generateTime})...`);
+    generateDoorCodes();
+  }, { timezone: 'Europe/Vienna' });
+  console.log(`[TTLock Cron] Neugestartet → Türcodes ${generateTime}`);
+  return { generateTime };
+}
+
+module.exports = { startTTLockCron, restartGenerateCron, generateDoorCodes, syncLockTime, timeToCron, getDoorcodeTemplate };

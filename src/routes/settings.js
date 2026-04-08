@@ -27,13 +27,26 @@ router.put('/', async (req, res) => {
   try {
     const body = { ...req.body };
     // Wenn Passwort maskiert → altes behalten
-    if (body.smtp?.pass === PASS_MASK) {
-      const existing = await Settings.findOne({ tenantId: TENANT_ID });
-      body.smtp.pass = existing?.smtp?.pass || '';
+    // Flatten nested objects to dot-notation $set — prevents overwriting sibling fields
+    const update = {};
+    for (const [key, val] of Object.entries(body)) {
+      if (val && typeof val === 'object' && !Array.isArray(val) && !(val instanceof Date)) {
+        for (const [subKey, subVal] of Object.entries(val)) {
+          if (key === 'smtp' && subKey === 'pass' && (!subVal || subVal === PASS_MASK)) {
+            // Keep existing password — skip empty and masked
+          } else if (key === 'smtp' && ['host', 'user', 'fromName'].includes(subKey) && !subVal) {
+            // Skip empty smtp fields — don't overwrite with ''
+          } else {
+            update[`${key}.${subKey}`] = subVal;
+          }
+        }
+      } else {
+        update[key] = val;
+      }
     }
     const settings = await Settings.findOneAndUpdate(
       { tenantId: TENANT_ID },
-      body,
+      { $set: update },
       { new: true, upsert: true }
     );
     const obj = settings.toObject();
