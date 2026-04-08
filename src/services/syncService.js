@@ -131,7 +131,13 @@ async function syncBookings() {
       // roomId + roomLockId zuweisen/aktualisieren wenn roomName vorhanden
       const savedBooking = result.value;
       if (savedBooking?.roomName && (!savedBooking.roomId || (existing && existing.roomName !== savedBooking.roomName))) {
-        const room = await Room.findOne({ name: savedBooking.roomName, tenantId: TENANT_ID }).lean();
+        // 1. Exakter Match in Room Collection
+        let room = await Room.findOne({ name: savedBooking.roomName, tenantId: TENANT_ID }).lean();
+        // 2. Fallback: Unit-Mapping aus Beds24 (z.B. "Deluxe" → roomId 546888, unitId → "Zimmer 1")
+        if (!room && savedBooking.beds24RoomId && savedBooking.beds24UnitId) {
+          const unitName = UNIT_TO_ROOM[`${savedBooking.beds24RoomId}-${savedBooking.beds24UnitId}`];
+          if (unitName) room = await Room.findOne({ name: unitName, tenantId: TENANT_ID }).lean();
+        }
         if (room) {
           const roomUpdate = { roomId: room._id };
           const settings = await Settings.findOne({ tenantId: TENANT_ID }, 'ttlock.locks').lean();
