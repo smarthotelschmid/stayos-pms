@@ -6,8 +6,12 @@ const settingsSchema = new mongoose.Schema({
   location: { type: String, default: 'Sitzenberg, NÖ' },
   checkInTime: { type: String, default: '15:00' },
   checkOutTime: { type: String, default: '11:00' },
-  address: { type: String, default: 'Schlossbergstraße 22, 3454 Sitzenberg-Reidling' },
+  address: { type: String, default: 'Schlossbergstraße 20, 3454 Sitzenberg-Reidling' },
+  hotelPhone: { type: String, default: '+43 2782 83118' },
+  hotelEmail: { type: String, default: 'booking@smarthotel-schmid.at' },
+  hotelWebsite: { type: String, default: 'https://smarthotel-schmid.at' },
   whatsapp: { type: String, default: '+436776203587' },
+  receptionHours: { type: String, default: '08:00 – 22:00' },
   houseRules: { type: [{ icon: String, text: String }], default: [
     { icon: '🌙', text: 'Ruhezeit 22:00 – 08:00 Uhr' },
     { icon: '🚭', text: 'Rauchen im gesamten Gebäude verboten' },
