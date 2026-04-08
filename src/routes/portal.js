@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Booking = require('../models/Booking');
+const Settings = require('../models/Settings');
 const { getToken, ttlockPost, CLIENT_ID } = require('../services/ttlockHelper');
 
 const TENANT_ID = '507f1f77bcf86cd799439011';
@@ -37,17 +38,42 @@ router.get('/:token', async (req, res) => {
       return res.json({ success: false, error: 'expired' });
     }
 
+    const settings = await Settings.findOne(
+      { tenantId: TENANT_ID },
+      'hotelName address whatsapp houseRules checkInTime checkOutTime'
+    ).lean();
+
+    // Nächte berechnen
+    const msPerDay = 86400000;
+    const ci = new Date(booking.checkIn);
+    const co = new Date(booking.checkOut);
+    const nights = Math.round((co - ci) / msPerDay);
+
+    // Gastname splitten
+    const nameParts = (booking.guestName || '').trim().split(/\s+/);
+    const guestFirstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : nameParts[0] || '';
+
     res.json({
       success: true,
       data: {
         bookingNumber: booking.bookingNumber,
         guestName: booking.guestName,
+        guestFirstName,
         roomName: booking.roomName,
         checkIn: booking.checkIn,
         checkOut: booking.checkOut,
+        nights,
         doorCode: booking.doorAccess?.stayosCode || null,
         status: booking.status,
         roomLockId: booking.doorAccess?.roomLockId || null,
+        hotelName: settings?.hotelName || 'smarthotel schmid',
+        address: settings?.address || 'Schlossbergstraße 22, 3454 Sitzenberg-Reidling',
+        whatsapp: settings?.whatsapp || '+436776203587',
+        houseRules: settings?.houseRules || [],
+        checkInTime: settings?.checkInTime || '15:00',
+        checkOutTime: settings?.checkOutTime || '11:00',
+        effectiveCheckInTime: booking.earlyCheckIn || settings?.checkInTime || '15:00',
+        effectiveCheckOutTime: booking.lateCheckOut || settings?.checkOutTime || '11:00',
       },
     });
   } catch (err) {

@@ -6,6 +6,13 @@ const settingsSchema = new mongoose.Schema({
   location: { type: String, default: 'Sitzenberg, NÖ' },
   checkInTime: { type: String, default: '15:00' },
   checkOutTime: { type: String, default: '11:00' },
+  address: { type: String, default: 'Schlossbergstraße 22, 3454 Sitzenberg-Reidling' },
+  whatsapp: { type: String, default: '+436776203587' },
+  houseRules: { type: [{ icon: String, text: String }], default: [
+    { icon: '🌙', text: 'Ruhezeit 22:00 – 08:00 Uhr' },
+    { icon: '🚭', text: 'Rauchen im gesamten Gebäude verboten' },
+    { icon: '🐾', text: 'Haustiere auf Anfrage' },
+  ]},
   doorCodeSendTime: { type: String, default: '10:00' },
   doorCodeDaysBefore: { type: Number, default: 1 },
   doorCodeSendEnabled: { type: Boolean, default: true },
