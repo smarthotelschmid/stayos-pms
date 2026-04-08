@@ -10,6 +10,7 @@ const settingsSchema = new mongoose.Schema({
   hotelPhone: { type: String, default: '+43 2782 83118' },
   hotelEmail: { type: String, default: 'booking@smarthotel-schmid.at' },
   hotelWebsite: { type: String, default: 'https://smarthotel-schmid.at' },
+  googleMapsUrl: { type: String, default: 'https://maps.app.goo.gl/o8LVXqhRZ69DHDYV9' },
   whatsapp: { type: String, default: '+436776203587' },
   receptionHours: { type: String, default: '08:00 – 22:00' },
   houseRules: { type: [{ icon: String, text: String }], default: [
