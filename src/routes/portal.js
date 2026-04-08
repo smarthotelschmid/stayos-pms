@@ -95,14 +95,19 @@ router.post('/:token/unlock', async (req, res) => {
     });
     if (!booking) return res.json({ success: false, error: 'not_found' });
 
-    // Zeitfenster: checkIn <= jetzt <= checkOut + 2h
+    // Zeitfenster: checkIn-Tag ab effectiveCheckInTime <= jetzt <= checkOut-Tag + checkOutTime + 2h
     const now = new Date();
-    const checkIn = new Date(booking.checkIn);
-    checkIn.setHours(0, 0, 0, 0);
-    const checkOutPlus2h = new Date(booking.checkOut);
-    checkOutPlus2h.setHours(checkOutPlus2h.getHours() + 14); // checkOut ist Datum, +11h (checkout time) +2h buffer
-    if (now < checkIn || now > checkOutPlus2h) {
-      return res.json({ success: false, error: 'Unlock nur während des Aufenthalts möglich' });
+    const settings = await Settings.findOne({ tenantId: TENANT_ID }, 'checkInTime checkOutTime').lean();
+    const ciTime = booking.earlyCheckIn || settings?.checkInTime || '15:00';
+    const coTime = settings?.checkOutTime || '11:00';
+    const [ciH, ciM] = ciTime.split(':').map(Number);
+    const [coH, coM] = coTime.split(':').map(Number);
+    const checkInStart = new Date(booking.checkIn);
+    checkInStart.setHours(ciH, ciM || 0, 0, 0);
+    const checkOutEnd = new Date(booking.checkOut);
+    checkOutEnd.setHours(coH + 2, coM || 0, 0, 0);
+    if (now < checkInStart || now > checkOutEnd) {
+      return res.json({ success: false, error: `Unlock erst ab ${ciTime} am Anreisetag möglich` });
     }
 
     // Rate limit
