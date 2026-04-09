@@ -8,6 +8,8 @@ const Room = require('../models/Room');
 const Settings = require('../models/Settings');
 const { transformBeds24Booking, transformBeds24Guest, transformBeds24Company, isEmailFake } = require('./dataTransformer');
 const { getToken, ttlockPost, CLIENT_ID } = require('./ttlockHelper');
+const { timeToUnix } = require('./ttlockService');
+const { sendDoorCodeEmail } = require('./doorCodeEmailService');
 const ENTRANCE_LOCK_ID = 3321320;
 
 const SYNC_INTERVAL = 30 * 60 * 1000; // 30 Minuten
@@ -158,15 +160,11 @@ async function syncBookings() {
               if (existing.doorAccess.roomKeyboardPwdId) {
                 await ttlockPost('/v3/keyboardPwd/delete', { ...params, lockId: oldLockId, keyboardPwdId: existing.doorAccess.roomKeyboardPwdId });
               }
-              // Neuen Code auf neuem Lock generieren (gleicher PIN)
+              // Neuen Code auf neuem Lock generieren (gleicher PIN, korrekte Vienna TZ)
               const ciStr = savedBooking.checkIn instanceof Date ? savedBooking.checkIn.toISOString().slice(0,10) : String(savedBooking.checkIn).slice(0,10);
               const coStr = savedBooking.checkOut instanceof Date ? savedBooking.checkOut.toISOString().slice(0,10) : String(savedBooking.checkOut).slice(0,10);
-              const [cy,cm,cd] = ciStr.split('-').map(Number);
-              const [oy,om,od] = coStr.split('-').map(Number);
-              const ciH = parseInt((settings.checkInTime || '15:00').split(':')[0]);
-              const coH = parseInt((settings.checkOutTime || '11:00').split(':')[0]);
-              const startMs = Date.UTC(cy, cm-1, cd, ciH) - 2*3600000; // approx Vienna
-              const endMs = Date.UTC(oy, om-1, od, coH) - 2*3600000;
+              const startMs = timeToUnix(ciStr, settings.checkInTime || '15:00');
+              const endMs = timeToUnix(coStr, settings.checkOutTime || '11:00');
               const pwdParams = {
                 clientId: CLIENT_ID, accessToken: token,
                 keyboardPwdType: 3, keyboardPwd: existing.doorAccess.stayosCode, addType: 2,
@@ -181,6 +179,14 @@ async function syncBookings() {
                   'doorAccess.roomLockId': newLockId,
                 }});
                 console.log(`[Beds24 Sync] Zimmerwechsel TTLock: ${existing.roomName} → ${savedBooking.roomName}, Code ${existing.doorAccess.stayosCode} migriert`);
+
+                // Email an Gast wenn checkIn === heute (Vienna TZ)
+                const viennaToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Vienna' });
+                if (ciStr === viennaToday && !savedBooking.communication?.doorCodeSent) {
+                  sendDoorCodeEmail(savedBooking._id).catch(e =>
+                    console.log(`[Beds24 Sync] Zimmerwechsel Email Fehler: ${e.message}`)
+                  );
+                }
               }
             } catch (e) {
               console.log(`[Beds24 Sync] TTLock Zimmerwechsel Fehler: ${e.message}`);
