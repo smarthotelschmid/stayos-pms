@@ -274,4 +274,4 @@ async function restartGenerateCron() {
   return { generateTime };
 }
 
-module.exports = { startTTLockCron, restartGenerateCron, generateDoorCodes, syncLockTime, timeToCron, getDoorcodeTemplate };
+module.exports = { startTTLockCron, restartGenerateCron, generateDoorCodes, syncLockTime, timeToCron, getDoorcodeTemplate, timeToUnix };
