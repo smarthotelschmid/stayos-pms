@@ -162,18 +162,19 @@ async function syncBookings() {
       }
     }
 
-    // Soft Delete: nur VERGANGENE Buchungen die in Beds24 nicht mehr existieren
-    // Aktive Buchungen (checkOut in Zukunft) nie automatisch löschen
-    // TODO: ersetzt durch Webhook-Logik wenn Self-built Channel Manager live
+    // Soft Delete: nur ZUKÜNFTIGE Buchungen die in Beds24 nicht mehr existieren
+    // CheckOut muss mindestens 48h in der Zukunft liegen — verhindert Löschung
+    // von Buchungen die gerade ausgecheckt wurden und aus der Beds24 API verschwinden
     const beds24Ids = allBookings.map(b => b.id);
     const now = new Date();
+    const safeCutoff = new Date(now.getTime() + 48 * 60 * 60 * 1000); // +48h
     const orphaned = await Booking.updateMany(
       {
         beds24BookingId: { $nin: beds24Ids },
         source: 'beds24',
-        status: { $nin: ['deleted', 'checked-out', 'no-show'] },
+        status: { $nin: ['deleted', 'cancelled', 'checked-out', 'no-show'] },
         manualOverride: { $ne: true },
-        checkOut: { $gte: now }
+        checkOut: { $gte: safeCutoff }
       },
       {
         $set: {

@@ -24,10 +24,27 @@ router.get('/', async (req, res) => {
   }
 });
 
+// ── GET /api/settings/check-slug/:slug ─────────────────
+router.get('/check-slug/:slug', async (req, res) => {
+  try {
+    const slug = req.params.slug.toLowerCase().replace(/[^a-z0-9-]/g, '');
+    if (slug.length < 3) return res.json({ available: false, reason: 'Mindestens 3 Zeichen' });
+    const existing = await Settings.findOne({ slug, tenantId: { $ne: TENANT_ID } }).lean();
+    res.json({ available: !existing });
+  } catch (err) {
+    res.json({ available: false, reason: err.message });
+  }
+});
+
 // ── PUT /api/settings ──────────────────────────────────
 router.put('/', async (req, res) => {
   try {
     const body = { ...req.body };
+    // Slug-Schutz: einmal gesetzt, nicht mehr änderbar
+    if (body.slug) {
+      const existing = await Settings.findOne({ tenantId: TENANT_ID }, 'slug').lean();
+      if (existing?.slug) delete body.slug;
+    }
     // Wenn Passwort maskiert → altes behalten
     // Flatten nested objects to dot-notation $set — prevents overwriting sibling fields
     const update = {};
@@ -51,8 +68,14 @@ router.put('/', async (req, res) => {
       { $set: update },
       { new: true, upsert: true }
     );
+    // Vercel Subdomain erstellen wenn Slug erstmalig gesetzt
+    if (update.slug && settings.slug) {
+      const { createSubdomain } = require('../utils/vercelAlias');
+      createSubdomain(settings.slug).catch(() => {});
+    }
     const obj = settings.toObject();
     if (obj.smtp?.pass) obj.smtp.pass = PASS_MASK;
+    obj.formattedAddress = formatAddress(obj);
     res.json({ success: true, data: obj });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
