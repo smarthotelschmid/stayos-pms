@@ -20,11 +20,19 @@ const propertySchema = new mongoose.Schema({
   whatsapp:      { type: String },
   hotelPhone:    { type: String },
   hotelEmail:    { type: String },
+  hotelWebsite:  { type: String },
+  receptionHours:{ type: String },
+  googleMapsUrl: { type: String },
   houseRules:    [{ icon: String, text: String }],
 
-  // Steuern & Abgaben (standortabhängig)
-  kurtaxe:       { type: Number, default: 0 },
-  kurtaxeMinAge: { type: Number, default: 14 },
+  // Steuern & Abgaben
+  mwstZimmer:      { type: Number, default: 10 },
+  mwstFruehstueck: { type: Number, default: 10 },
+  kurtaxe:         { type: Number, default: 0 },
+  kurtaxeMinAge:   { type: Number, default: 14 },
+
+  // Integrationen
+  bookingComHotelId: { type: String },
 
   // Rechnungsstellung (flach)
   billingName:    { type: String },
