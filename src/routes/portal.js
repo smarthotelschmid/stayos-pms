@@ -113,18 +113,19 @@ router.post('/:token/unlock', async (req, res) => {
     });
     if (!booking) return res.json({ success: false, error: 'not_found' });
 
-    // Zeitfenster: checkIn-Tag ab effectiveCheckInTime <= jetzt <= checkOut-Tag + checkOutTime + 2h
+    // Zeitfenster: checkIn-Tag ab effectiveCheckInTime (Vienna) <= jetzt <= checkOut-Tag + checkOutTime + 2h
     const now = new Date();
     const settings = await Settings.findOne({ tenantId: TENANT_ID }, 'checkInTime checkOutTime').lean();
     const ciTime = booking.earlyCheckIn || settings?.checkInTime || '15:00';
     const coTime = settings?.checkOutTime || '11:00';
-    const [ciH, ciM] = ciTime.split(':').map(Number);
-    const [coH, coM] = coTime.split(':').map(Number);
-    const checkInStart = new Date(booking.checkIn);
-    checkInStart.setHours(ciH, ciM || 0, 0, 0);
-    const checkOutEnd = new Date(booking.checkOut);
-    checkOutEnd.setHours(coH + 2, coM || 0, 0, 0);
-    if (now < checkInStart || now > checkOutEnd) {
+    // Vienna Timezone korrekt: checkIn kann UTC-shifted sein (22:00 UTC = 00:00 Vienna)
+    const { timeToUnix } = require('../services/ttlockService');
+    const toViennaDate = (d) => new Date(d).toLocaleDateString('en-CA', { timeZone: 'Europe/Vienna' });
+    const ciStr = toViennaDate(booking.checkIn);
+    const coStr = toViennaDate(booking.checkOut);
+    const checkInStartMs = timeToUnix(ciStr, ciTime);
+    const checkOutEndMs = timeToUnix(coStr, coTime) + 2 * 3600000; // +2h Buffer
+    if (now.getTime() < checkInStartMs || now.getTime() > checkOutEndMs) {
       return res.json({ success: false, error: `Unlock erst ab ${ciTime} am Anreisetag möglich` });
     }
 
