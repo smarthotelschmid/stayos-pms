@@ -93,6 +93,7 @@ router.get('/:token', async (req, res) => {
         checkOutTime: property?.checkOutTime || settings?.checkOutTime || '11:00',
         effectiveCheckInTime: booking.earlyCheckIn || property?.checkInTime || settings?.checkInTime || '15:00',
         effectiveCheckOutTime: booking.lateCheckOut || property?.checkOutTime || settings?.checkOutTime || '11:00',
+        ci: property?.ci || null,
       },
     });
   } catch (err) {
