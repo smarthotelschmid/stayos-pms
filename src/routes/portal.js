@@ -125,8 +125,11 @@ router.post('/:token/unlock', async (req, res) => {
     const coStr = toViennaDate(booking.checkOut);
     const checkInStartMs = timeToUnix(ciStr, ciTime);
     const checkOutEndMs = timeToUnix(coStr, coTime) + 2 * 3600000; // +2h Buffer
-    if (now.getTime() < checkInStartMs || now.getTime() > checkOutEndMs) {
-      return res.json({ success: false, error: `Unlock erst ab ${ciTime} am Anreisetag möglich` });
+    if (now.getTime() < checkInStartMs) {
+      return res.json({ success: false, error: 'too_early', message: `Türöffnung ab ${ciTime} Uhr am Anreisetag möglich` });
+    }
+    if (now.getTime() > checkOutEndMs) {
+      return res.json({ success: false, error: 'too_late', message: 'Aufenthalt beendet — Türöffnung nicht mehr möglich' });
     }
 
     // Rate limit
