@@ -80,7 +80,7 @@ router.get('/:token', async (req, res) => {
         doorCode: booking.doorAccess?.stayosCode || booking.doorAccess?.code || null,
         status: booking.status,
         roomLockId: booking.doorAccess?.roomLockId || null,
-        roomUnlockSupported: ![3653352, 3653284].includes(booking.doorAccess?.roomLockId),
+        roomUnlockSupported: true,
         hotelName: property?.name || settings?.hotelName || '',
         address: property ? formatPropertyAddress(property) : formatAddress(settings),
         googleMapsUrl: settings?.googleMapsUrl || '',
