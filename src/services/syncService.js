@@ -195,6 +195,55 @@ async function syncBookings() {
         }
       }
 
+      // Code generieren wenn Buchung confirmed + kein STAYOS-Code + roomLockId vorhanden
+      const freshBooking = await Booking.findById(result.value?._id).lean();
+      if (freshBooking && freshBooking.status === 'confirmed' && !freshBooking.doorAccess?.stayosCode && freshBooking.doorAccess?.roomLockId) {
+        try {
+          const settings2 = await Settings.findOne({ tenantId: TENANT_ID }).lean();
+          const lockEntry = (settings2?.ttlock?.locks || []).find(l => l.lockId === freshBooking.doorAccess.roomLockId);
+          if (lockEntry && settings2?.ttlock?.accessToken) {
+            const token = await getToken();
+            const checkInTime = settings2.checkInTime || '15:00';
+            const checkOutTime = settings2.checkOutTime || '11:00';
+            const ciStr2 = new Date(freshBooking.checkIn).toLocaleDateString('en-CA', { timeZone: 'Europe/Vienna' });
+            const coStr2 = new Date(freshBooking.checkOut).toLocaleDateString('en-CA', { timeZone: 'Europe/Vienna' });
+            const startMs2 = timeToUnix(ciStr2, checkInTime);
+            const endMs2 = timeToUnix(coStr2, checkOutTime);
+            const pin = String(1000 + Math.floor(Math.random() * 9000));
+            const pwdParams = {
+              clientId: CLIENT_ID, accessToken: token,
+              keyboardPwdType: 3, keyboardPwd: pin, addType: 2,
+              startDate: startMs2.toString(), endDate: endMs2.toString(),
+              keyboardPwdName: `${freshBooking.guestName || ''} ${freshBooking.bookingNumber || ''}`.trim(),
+              date: Date.now(),
+            };
+            const roomResult = await ttlockPost('/v3/keyboardPwd/add', { ...pwdParams, lockId: lockEntry.lockId });
+            const entranceResult = await ttlockPost('/v3/keyboardPwd/add', { ...pwdParams, lockId: ENTRANCE_LOCK_ID });
+            if (roomResult.keyboardPwdId) {
+              await Booking.updateOne({ _id: freshBooking._id }, { $set: {
+                'doorAccess.stayosCode': pin,
+                'doorAccess.roomKeyboardPwdId': roomResult.keyboardPwdId,
+                'doorAccess.entranceKeyboardPwdId': entranceResult.keyboardPwdId || null,
+                'doorAccess.roomLockId': lockEntry.lockId,
+                'doorAccess.entranceLockId': ENTRANCE_LOCK_ID,
+                'doorAccess.generatedAt': new Date(),
+                'doorAccess.validFrom': new Date(startMs2),
+                'doorAccess.validTo': new Date(endMs2),
+              }});
+              console.log(`[Beds24 Sync] Code generiert: ${freshBooking.roomName} → ${pin} (${freshBooking.guestName})`);
+
+              // Check-in heute? Email sofort
+              const todayVienna = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Vienna' });
+              if (ciStr2 === todayVienna) {
+                sendDoorCodeEmail(freshBooking._id).catch(e => console.log(`[Beds24 Sync] Email Fehler: ${e.message}`));
+              }
+            }
+          }
+        } catch (e) {
+          console.log(`[Beds24 Sync] Code-Generierung Fehler: ${e.message}`);
+        }
+      }
+
       // Link booking to guest
       if (guestId && result.value?._id) {
         await Guest.updateOne(
