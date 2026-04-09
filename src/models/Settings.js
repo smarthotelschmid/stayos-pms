@@ -7,7 +7,6 @@ const settingsSchema = new mongoose.Schema({
   customDomain: { type: String },
   customDomainVerified: { type: Boolean, default: false },
   companyName: { type: String },
-  tenantLogoUrl: { type: String },
   companyVatId: { type: String },
   companyIban: { type: String },
   companyBic: { type: String },
