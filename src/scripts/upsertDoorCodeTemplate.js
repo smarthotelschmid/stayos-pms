@@ -12,9 +12,14 @@ const htmlDE = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="vie
 <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%">
 
 <!-- Header -->
-<tr><td style="background:#3d4fbc;padding:28px 36px;border-radius:12px 12px 0 0;text-align:center">
-<p style="margin:0;font-size:14px;font-weight:700;letter-spacing:3px;color:#ffffff;text-transform:uppercase">{{hotelName}}</p>
-<p style="margin:6px 0 0;font-size:12px;color:#b8c0f0">{{tagline}}</p>
+<tr><td style="background:#3d4fbc;padding:32px 36px;border-radius:12px 12px 0 0;text-align:center">
+<img src="https://smarthotel-schmid.at/wp-content/uploads/2022/12/Logo-Smarthotel-SW-2-1.png" height="55" style="display:block;margin:0 auto 12px;filter:brightness(0) invert(1)" alt="Smarthotel Schmid">
+<p style="margin:10px 0 0;font-size:12px;color:#b8c0f0">{{tagline}}</p>
+</td></tr>
+
+<!-- Foto -->
+<tr><td>
+<img src="https://smarthotel-schmid.at/wp-content/uploads/2025/04/Landgasthof-Schmid_2024-28-scaled.jpg" width="600" style="width:100%;max-width:600px;display:block;height:280px;object-fit:cover" alt="Smarthotel Schmid">
 </td></tr>
 
 <!-- Body -->
@@ -27,8 +32,8 @@ const htmlDE = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="vie
 <!-- Button -->
 <table cellpadding="0" cellspacing="0" width="100%"><tr><td align="center" style="padding:8px 0 32px">
 <table cellpadding="0" cellspacing="0"><tr>
-<td style="background:#3d4fbc;border-radius:8px;padding:16px 40px">
-<a href="{{guestPortalLink}}" style="color:#ffffff;text-decoration:none;font-weight:600;font-size:16px;display:inline-block">Zum Gästeportal →</a>
+<td style="background:#3d4fbc;border-radius:8px;">
+<a href="{{guestPortalLink}}" style="color:#ffffff;text-decoration:none;font-weight:600;font-size:16px;display:block;padding:16px 40px;">Zum Gästeportal →</a>
 </td></tr></table>
 </td></tr></table>
 
@@ -39,8 +44,7 @@ const htmlDE = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="vie
 
 <hr style="border:none;border-top:1px solid #eaedf8;margin:0 0 24px">
 
-<p style="margin:0 0 4px;font-size:13px;color:#5c6dd4;text-align:center">Fragen? WhatsApp <a href="https://wa.me/{{hotelPhoneWhatsapp}}" style="color:#3d4fbc;text-decoration:none;font-weight:500">{{hotelPhone}}</a></p>
-<p style="margin:0;font-size:13px;color:#5c6dd4;text-align:center">Täglich {{receptionHours}}</p>
+<p style="margin:0;font-size:13px;color:#5c6dd4;text-align:center">Fragen? <a href="https://wa.me/{{hotelPhoneWhatsapp}}" style="color:#3d4fbc;text-decoration:none;font-weight:500">Schreiben Sie uns auf WhatsApp</a></p>
 
 <hr style="border:none;border-top:1px solid #eaedf8;margin:24px 0">
 
@@ -57,9 +61,14 @@ const htmlEN = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="vie
 <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%">
 
 <!-- Header -->
-<tr><td style="background:#3d4fbc;padding:28px 36px;border-radius:12px 12px 0 0;text-align:center">
-<p style="margin:0;font-size:14px;font-weight:700;letter-spacing:3px;color:#ffffff;text-transform:uppercase">{{hotelName}}</p>
-<p style="margin:6px 0 0;font-size:12px;color:#b8c0f0">{{tagline}}</p>
+<tr><td style="background:#3d4fbc;padding:32px 36px;border-radius:12px 12px 0 0;text-align:center">
+<img src="https://smarthotel-schmid.at/wp-content/uploads/2022/12/Logo-Smarthotel-SW-2-1.png" height="55" style="display:block;margin:0 auto 12px;filter:brightness(0) invert(1)" alt="Smarthotel Schmid">
+<p style="margin:10px 0 0;font-size:12px;color:#b8c0f0">{{tagline}}</p>
+</td></tr>
+
+<!-- Foto -->
+<tr><td>
+<img src="https://smarthotel-schmid.at/wp-content/uploads/2025/04/Landgasthof-Schmid_2024-28-scaled.jpg" width="600" style="width:100%;max-width:600px;display:block;height:280px;object-fit:cover" alt="Smarthotel Schmid">
 </td></tr>
 
 <!-- Body -->
@@ -72,8 +81,8 @@ const htmlEN = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="vie
 <!-- Button -->
 <table cellpadding="0" cellspacing="0" width="100%"><tr><td align="center" style="padding:8px 0 32px">
 <table cellpadding="0" cellspacing="0"><tr>
-<td style="background:#3d4fbc;border-radius:8px;padding:16px 40px">
-<a href="{{guestPortalLink}}" style="color:#ffffff;text-decoration:none;font-weight:600;font-size:16px;display:inline-block">Go to Guest Portal →</a>
+<td style="background:#3d4fbc;border-radius:8px;">
+<a href="{{guestPortalLink}}" style="color:#ffffff;text-decoration:none;font-weight:600;font-size:16px;display:block;padding:16px 40px;">Go to Guest Portal →</a>
 </td></tr></table>
 </td></tr></table>
 
@@ -84,8 +93,7 @@ const htmlEN = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="vie
 
 <hr style="border:none;border-top:1px solid #eaedf8;margin:0 0 24px">
 
-<p style="margin:0 0 4px;font-size:13px;color:#5c6dd4;text-align:center">Questions? WhatsApp <a href="https://wa.me/{{hotelPhoneWhatsapp}}" style="color:#3d4fbc;text-decoration:none;font-weight:500">{{hotelPhone}}</a></p>
-<p style="margin:0;font-size:13px;color:#5c6dd4;text-align:center">Daily {{receptionHours}}</p>
+<p style="margin:0;font-size:13px;color:#5c6dd4;text-align:center">Questions? <a href="https://wa.me/{{hotelPhoneWhatsapp}}" style="color:#3d4fbc;text-decoration:none;font-weight:500">Message us on WhatsApp</a></p>
 
 <hr style="border:none;border-top:1px solid #eaedf8;margin:24px 0">
 
@@ -101,7 +109,7 @@ const blocksDE = [
   { type: 'button', content: 'Zum Gästeportal →', url: '{{guestPortalLink}}', color: '#3d4fbc', align: 'center' },
   { type: 'text', content: '{{checkIn}} – {{checkOut}} · {{roomName}}', align: 'center', size: 'small' },
   { type: 'divider' },
-  { type: 'text', content: 'Fragen? WhatsApp {{hotelPhone}}, täglich {{receptionHours}}', align: 'center', size: 'small' },
+  { type: 'text', content: 'Fragen? Schreiben Sie uns auf WhatsApp', align: 'center', size: 'small' },
   { type: 'divider' },
   { type: 'text', content: '{{hotelName}} · {{hotelAddress}}', align: 'center', size: 'small' },
 ];
@@ -111,7 +119,7 @@ const blocksEN = [
   { type: 'button', content: 'Go to Guest Portal →', url: '{{guestPortalLink}}', color: '#3d4fbc', align: 'center' },
   { type: 'text', content: '{{checkIn}} – {{checkOut}} · {{roomName}}', align: 'center', size: 'small' },
   { type: 'divider' },
-  { type: 'text', content: 'Questions? WhatsApp {{hotelPhone}}, daily {{receptionHours}}', align: 'center', size: 'small' },
+  { type: 'text', content: 'Questions? Message us on WhatsApp', align: 'center', size: 'small' },
   { type: 'divider' },
   { type: 'text', content: '{{hotelName}} · {{hotelAddress}}', align: 'center', size: 'small' },
 ];
@@ -135,7 +143,6 @@ async function run() {
 
   console.log('Template upserted:', result._id.toString());
   console.log('Subject DE:', result.subject.de);
-  console.log('Subject EN:', result.subject.en);
   console.log('HTML DE:', result.contentHtml.de.length, 'chars');
   console.log('HTML EN:', result.contentHtml.en.length, 'chars');
   mongoose.disconnect();
