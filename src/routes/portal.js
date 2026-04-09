@@ -40,6 +40,11 @@ router.get('/:token', async (req, res) => {
     });
     if (!booking) return res.json({ success: false, error: 'not_found' });
 
+    // Storniert oder gelöscht
+    if (['cancelled', 'deleted'].includes(booking.status)) {
+      return res.json({ success: false, error: 'cancelled' });
+    }
+
     // Expired: checkOut + 24h überschritten
     const checkOutDate = new Date(booking.checkOut);
     checkOutDate.setHours(checkOutDate.getHours() + 24);
