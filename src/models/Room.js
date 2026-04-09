@@ -8,7 +8,8 @@ const roomSchema = new mongoose.Schema({
   // Jedes Zimmer gehört zu einem Hotel (tenantId = Mandant)
   // So trennen wir später Hotel A von Hotel B — Multi-Tenant
   tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: true },
-  
+  propertyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Property' },
+
   // Zimmernummer z.B. "101" oder "Appartement Alpin"
   number: { type: String, required: true },
   

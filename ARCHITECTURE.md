@@ -35,3 +35,38 @@
 - Vorschau zeigen: "Deine Gäste erhalten Links wie:
   https://mein-hotel.stayos.at/portal/..."
 - Bestätigung mit Checkbox bevor Slug gesetzt wird
+
+## Multi-Property Architektur
+
+Tenant (STAYOS Account / Login)
+└── 1..n Properties (Hotels, Standorte, Appartements)
+    └── 1..n Rooms
+
+### Rechnungsstellung
+- Jede Property hat eigene billingEntity
+- Wenn billingEntity.companyName leer → Fallback auf Settings.companyName
+- Ermöglicht: eine GmbH mehrere Properties ODER jede Property eigene GmbH
+
+### Beispiel Schmid 1954 GmbH
+- Property 1: Smarthotel Schmid, Schlossbergstraße 20
+- Property 2: Suiten Schmid, Schlossbergstraße 22
+- Beide: billingEntity = Schmid 1954 GmbH (vorerst)
+
+### Kalender Multi-Property (ToDo)
+- Tab-System: [Alle] [Smarthotel Schmid] [Suiten Schmid]
+- Pro Property eigener Kalender oder kombinierte Ansicht
+
+## TTLock Multi-Account
+- Aktuell: ein TTLock Account für alle Schlösser (clientId in .env)
+- SaaS: TTLock Credentials auf Property-Ebene (Property.ttlock)
+- Für Schmid: ein Account für beide Properties → passt
+
+## Beds24 Multi-Account
+- Aktuell: ein Beds24 Account für alle Buchungen
+- SaaS: Beds24 Credentials auf Property-Ebene
+- Für Schmid: ein Account → passt
+
+## Lock Provider Abstraction (ToDo)
+- Property.lockProvider: 'ttlock' | 'nuki' | 'salto' | 'dormakaba' | ...
+- Einheitliches Interface: generateCode(), deleteCode(), unlock()
+- Implementierung: vor erstem Kunden mit anderem Anbieter

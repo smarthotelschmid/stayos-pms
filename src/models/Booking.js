@@ -69,6 +69,7 @@ const bookingSchema = new mongoose.Schema({
   
   // Verweis auf das Zimmer
   roomId: { type: mongoose.Schema.Types.ObjectId, ref: 'Room' },
+  propertyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Property' },
 
   // ── ZEITRAUM ──────────────────────────────────────────
   

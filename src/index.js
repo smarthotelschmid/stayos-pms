@@ -21,6 +21,7 @@ const messagesRouter       = require('./routes/messages');
 const ttlockRouter         = require('./routes/ttlock');
 const emailTemplatesRouter = require('./routes/emailTemplates');
 const portalRouter         = require('./routes/portal');
+const propertiesRouter     = require('./routes/properties');
 
 const { startSync }                                    = require('./services/syncService');
 const { startTTLockCron, getDoorcodeTemplate, timeToCron } = require('./services/ttlockService');
@@ -37,6 +38,7 @@ app.use('/api/messages',        messagesRouter);
 app.use('/api/ttlock',          ttlockRouter);
 app.use('/api/email-templates', emailTemplatesRouter);
 app.use('/api/portal',          portalRouter);
+app.use('/api/properties',      propertiesRouter);
 app.use('/api',                 beds24Router);
 
 app.get('/', (req, res) => {

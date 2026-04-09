@@ -2,8 +2,16 @@ const express = require('express');
 const router = express.Router();
 const Booking = require('../models/Booking');
 const Settings = require('../models/Settings');
+const Property = require('../models/Property');
 const { getToken, ttlockPost, CLIENT_ID } = require('../services/ttlockHelper');
 const { formatAddress } = require('../utils/formatAddress');
+
+function formatPropertyAddress(p) {
+  if (!p) return '';
+  const line1 = [p.hotelStreet, p.hotelStreetNo].filter(Boolean).join(' ');
+  const line2 = [p.hotelCountry ? `${p.hotelCountry}-${p.hotelZip}` : p.hotelZip, p.hotelCity].filter(Boolean).join(' ');
+  return [line1, line2].filter(Boolean).join('\n');
+}
 
 const TENANT_ID = '507f1f77bcf86cd799439011';
 const ENTRANCE_LOCK_ID = 3321320;
@@ -44,6 +52,11 @@ router.get('/:token', async (req, res) => {
       'hotelName hotelStreet hotelStreetNo hotelZip hotelCity hotelCountry hotelPhone hotelEmail hotelWebsite whatsapp receptionHours houseRules checkInTime checkOutTime googleMapsUrl'
     ).lean();
 
+    // Property laden (Vorrang vor Settings)
+    const property = booking.propertyId
+      ? await Property.findById(booking.propertyId).lean()
+      : null;
+
     // Nächte berechnen
     const msPerDay = 86400000;
     const ci = new Date(booking.checkIn);
@@ -67,18 +80,18 @@ router.get('/:token', async (req, res) => {
         doorCode: booking.doorAccess?.stayosCode || booking.doorAccess?.code || null,
         status: booking.status,
         roomLockId: booking.doorAccess?.roomLockId || null,
-        hotelName: settings?.hotelName || '',
-        address: formatAddress(settings),
+        hotelName: property?.name || settings?.hotelName || '',
+        address: property ? formatPropertyAddress(property) : formatAddress(settings),
         googleMapsUrl: settings?.googleMapsUrl || '',
-        whatsapp: settings?.whatsapp || '',
-        hotelPhone: settings?.hotelPhone || '',
+        whatsapp: property?.whatsapp || settings?.whatsapp || '',
+        hotelPhone: property?.hotelPhone || settings?.hotelPhone || '',
         hotelEmail: settings?.hotelEmail || '',
         receptionHours: settings?.receptionHours || '',
-        houseRules: settings?.houseRules || [],
-        checkInTime: settings?.checkInTime || '15:00',
-        checkOutTime: settings?.checkOutTime || '11:00',
-        effectiveCheckInTime: booking.earlyCheckIn || settings?.checkInTime || '15:00',
-        effectiveCheckOutTime: booking.lateCheckOut || settings?.checkOutTime || '11:00',
+        houseRules: property?.houseRules?.length ? property.houseRules : settings?.houseRules || [],
+        checkInTime: property?.checkInTime || settings?.checkInTime || '15:00',
+        checkOutTime: property?.checkOutTime || settings?.checkOutTime || '11:00',
+        effectiveCheckInTime: booking.earlyCheckIn || property?.checkInTime || settings?.checkInTime || '15:00',
+        effectiveCheckOutTime: booking.lateCheckOut || property?.checkOutTime || settings?.checkOutTime || '11:00',
       },
     });
   } catch (err) {
