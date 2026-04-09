@@ -28,6 +28,9 @@ router.get('/:id', async (req, res) => {
 // POST /api/properties
 router.post('/', async (req, res) => {
   try {
+    if (!req.body.name || req.body.name.trim() === '' || req.body.name === 'Neue Property') {
+      return res.status(400).json({ success: false, error: 'Name erforderlich' });
+    }
     const property = await Property.create({ ...req.body, tenantId: TENANT_ID });
     res.status(201).json({ success: true, data: property });
   } catch (err) {
@@ -45,6 +48,23 @@ router.put('/:id', async (req, res) => {
     );
     if (!property) return res.status(404).json({ success: false, error: 'Property nicht gefunden' });
     res.json({ success: true, data: property });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+// DELETE /api/properties/:id
+router.delete('/:id', async (req, res) => {
+  try {
+    const Booking = require('../models/Booking');
+    const active = await Booking.countDocuments({
+      propertyId: req.params.id,
+      status: { $nin: ['cancelled', 'deleted', 'checked-out'] },
+      checkOut: { $gte: new Date() },
+    });
+    if (active > 0) return res.status(400).json({ success: false, error: `${active} aktive Buchungen — kann nicht gelöscht werden` });
+    await Property.deleteOne({ _id: req.params.id, tenantId: TENANT_ID });
+    res.json({ success: true });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
   }
