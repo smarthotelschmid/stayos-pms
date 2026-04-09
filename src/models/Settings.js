@@ -11,6 +11,7 @@ const settingsSchema = new mongoose.Schema({
   companyRegNumber: { type: String },
   companyIban: { type: String },
   companyBic: { type: String },
+  billingEmail: { type: String },
   location: { type: String, default: 'Sitzenberg, NÖ' },
   checkInTime: { type: String, default: '15:00' },
   checkOutTime: { type: String, default: '11:00' },
