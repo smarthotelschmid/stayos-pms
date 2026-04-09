@@ -302,14 +302,35 @@ router.put('/:id', async (req, res) => {
 // ── PATCH /api/bookings/:id — partielle Updates ───────
 router.patch('/:id', async (req, res) => {
   try {
+    // Alte Buchung VOR Update laden (für Zimmerwechsel-Erkennung)
+    const oldBooking = await Booking.findById(req.params.id).lean();
+    if (!oldBooking) return res.status(404).json({ success: false, error: 'Buchung nicht gefunden' });
+
     const update = {};
     for (const [key, val] of Object.entries(req.body)) {
-      if (key.includes('.')) update[key] = val;
-      else update[key] = val;
+      update[key] = val;
     }
     const booking = await Booking.findByIdAndUpdate(req.params.id, { $set: update }, { new: true });
-    if (!booking) return res.status(404).json({ success: false, error: 'Buchung nicht gefunden' });
-    res.json({ success: true, data: booking });
+
+    // Zimmerwechsel? roomId hat sich geändert + alter Code vorhanden
+    const oldRoomId = oldBooking.roomId?.toString();
+    const newRoomId = (booking.roomId?._id || booking.roomId)?.toString();
+    if (oldRoomId && newRoomId && oldRoomId !== newRoomId && oldBooking.doorAccess?.stayosCode) {
+      try {
+        // Alten Code löschen (mit alter roomLockId)
+        await deleteCode({ ...oldBooking, doorAccess: oldBooking.doorAccess });
+        // Neuen Code generieren
+        const da = await generateCode(booking);
+        if (da) {
+          console.log(`[TTLock] Zimmerwechsel: ${oldBooking.roomName} → ${booking.roomName}, Code neu generiert`);
+        }
+      } catch (e) {
+        console.log(`[TTLock] Zimmerwechsel Code-Fehler: ${e.message}`);
+      }
+    }
+
+    const updated = await Booking.findById(booking._id);
+    res.json({ success: true, data: updated });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
   }
