@@ -1,4 +1,4 @@
-async function createSubdomain(slug) {
+async function createSubdomain(slugOrDomain) {
   const token = process.env.VERCEL_TOKEN;
   const projectId = process.env.VERCEL_PROJECT_ID;
   if (!token || !projectId) {
@@ -6,14 +6,14 @@ async function createSubdomain(slug) {
     return { error: 'Vercel nicht konfiguriert' };
   }
   try {
-    // Domain zum Projekt hinzufügen
+    const domain = slugOrDomain.includes('.') ? slugOrDomain : `${slugOrDomain}.stayos.at`;
     const res = await fetch(`https://api.vercel.com/v10/projects/${projectId}/domains`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: `${slug}.stayos.at` }),
+      body: JSON.stringify({ name: domain }),
     });
     const data = await res.json();
-    console.log(`[Vercel] Subdomain ${slug}.stayos.at:`, data.error?.message || 'OK');
+    console.log(`[Vercel] Domain ${domain}:`, data.error?.message || 'OK');
     return data;
   } catch (err) {
     console.error('[Vercel] Fehler:', err.message);

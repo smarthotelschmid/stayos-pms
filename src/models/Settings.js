@@ -4,6 +4,8 @@ const settingsSchema = new mongoose.Schema({
   tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: true },
   hotelName: { type: String, default: 'smarthotel schmid.at' },
   slug: { type: String, unique: true, sparse: true },
+  customDomain: { type: String },
+  customDomainVerified: { type: Boolean, default: false },
   location: { type: String, default: 'Sitzenberg, NÖ' },
   checkInTime: { type: String, default: '15:00' },
   checkOutTime: { type: String, default: '11:00' },
