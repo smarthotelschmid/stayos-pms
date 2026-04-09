@@ -259,19 +259,17 @@ async function syncBookings() {
       }
     }
 
-    // Soft Delete: nur ZUKÜNFTIGE Buchungen die in Beds24 nicht mehr existieren
-    // CheckOut muss mindestens 48h in der Zukunft liegen — verhindert Löschung
-    // von Buchungen die gerade ausgecheckt wurden und aus der Beds24 API verschwinden
+    // Soft Delete: Buchungen die in Beds24 nicht mehr existieren
+    // checked-out und cancelled sind ausgeschlossen — nur confirmed/checked-in werden gelöscht
     const beds24Ids = allBookings.map(b => b.id);
     const now = new Date();
-    const safeCutoff = new Date(now.getTime() + 48 * 60 * 60 * 1000); // +48h
     const orphaned = await Booking.updateMany(
       {
         beds24BookingId: { $nin: beds24Ids },
         source: 'beds24',
         status: { $nin: ['deleted', 'cancelled', 'checked-out', 'no-show'] },
         manualOverride: { $ne: true },
-        checkOut: { $gte: safeCutoff }
+        checkOut: { $gte: now }
       },
       {
         $set: {
