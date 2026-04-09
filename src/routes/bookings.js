@@ -233,6 +233,14 @@ router.post('/', async (req, res) => {
       if (req.body.status === 'confirmed' || !req.body.status) {
         const da = await generateCode(booking);
         if (da) booking.doorAccess = da;
+
+        // Check-in heute? Email sofort senden (Last-Minute Buchung)
+        const todayVienna = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Vienna' });
+        const ciVienna = new Date(booking.checkIn).toLocaleDateString('en-CA', { timeZone: 'Europe/Vienna' });
+        if (da && todayVienna === ciVienna) {
+          const { sendDoorCodeEmail } = require('../services/doorCodeEmailService');
+          sendDoorCodeEmail(booking._id).catch(e => console.log(`[Email] Sofort-Versand Fehler: ${e.message}`));
+        }
       }
     } catch (e) {
       console.log(`[TTLock] Code-Generierung Fehler: ${e.message}`);
@@ -349,7 +357,16 @@ router.patch('/:id/status', async (req, res) => {
 
     try {
       if (status === 'confirmed' && !booking.doorAccess?.stayosCode) {
-        await generateCode(booking);
+        const da = await generateCode(booking);
+        // Check-in heute? Email sofort
+        if (da) {
+          const todayVienna = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Vienna' });
+          const ciVienna = new Date(booking.checkIn).toLocaleDateString('en-CA', { timeZone: 'Europe/Vienna' });
+          if (todayVienna === ciVienna) {
+            const { sendDoorCodeEmail } = require('../services/doorCodeEmailService');
+            sendDoorCodeEmail(booking._id).catch(e => console.log(`[Email] Sofort-Versand Fehler: ${e.message}`));
+          }
+        }
       }
       if (status === 'cancelled' || status === 'checked-out') {
         await deleteCode(booking);
