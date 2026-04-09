@@ -7,6 +7,8 @@ const Company = require('../models/Company');
 const Room = require('../models/Room');
 const Settings = require('../models/Settings');
 const { transformBeds24Booking, transformBeds24Guest, transformBeds24Company, isEmailFake } = require('./dataTransformer');
+const { getToken, ttlockPost, CLIENT_ID } = require('./ttlockHelper');
+const ENTRANCE_LOCK_ID = 3321320;
 
 const SYNC_INTERVAL = 30 * 60 * 1000; // 30 Minuten
 const TENANT_ID = '507f1f77bcf86cd799439011';
@@ -140,10 +142,50 @@ async function syncBookings() {
         }
         if (room) {
           const roomUpdate = { roomId: room._id };
-          const settings = await Settings.findOne({ tenantId: TENANT_ID }, 'ttlock.locks').lean();
+          const settings = await Settings.findOne({ tenantId: TENANT_ID }, 'ttlock.locks checkInTime checkOutTime').lean();
           const lock = (settings?.ttlock?.locks || []).find(l => l.roomId?.toString() === room._id.toString());
           if (lock) roomUpdate['doorAccess.roomLockId'] = lock.lockId;
           await Booking.updateOne({ _id: savedBooking._id }, { $set: roomUpdate });
+
+          // Zimmerwechsel? Altes Lock ≠ neues Lock + STAYOS-Code vorhanden → Code migrieren
+          const oldLockId = existing?.doorAccess?.roomLockId;
+          const newLockId = lock?.lockId;
+          if (oldLockId && newLockId && oldLockId !== newLockId && existing?.doorAccess?.stayosCode) {
+            try {
+              const token = await getToken();
+              const params = { clientId: CLIENT_ID, accessToken: token, date: Date.now() };
+              // Alten Code löschen
+              if (existing.doorAccess.roomKeyboardPwdId) {
+                await ttlockPost('/v3/keyboardPwd/delete', { ...params, lockId: oldLockId, keyboardPwdId: existing.doorAccess.roomKeyboardPwdId });
+              }
+              // Neuen Code auf neuem Lock generieren (gleicher PIN)
+              const ciStr = savedBooking.checkIn instanceof Date ? savedBooking.checkIn.toISOString().slice(0,10) : String(savedBooking.checkIn).slice(0,10);
+              const coStr = savedBooking.checkOut instanceof Date ? savedBooking.checkOut.toISOString().slice(0,10) : String(savedBooking.checkOut).slice(0,10);
+              const [cy,cm,cd] = ciStr.split('-').map(Number);
+              const [oy,om,od] = coStr.split('-').map(Number);
+              const ciH = parseInt((settings.checkInTime || '15:00').split(':')[0]);
+              const coH = parseInt((settings.checkOutTime || '11:00').split(':')[0]);
+              const startMs = Date.UTC(cy, cm-1, cd, ciH) - 2*3600000; // approx Vienna
+              const endMs = Date.UTC(oy, om-1, od, coH) - 2*3600000;
+              const pwdParams = {
+                clientId: CLIENT_ID, accessToken: token,
+                keyboardPwdType: 3, keyboardPwd: existing.doorAccess.stayosCode, addType: 2,
+                startDate: startMs.toString(), endDate: endMs.toString(),
+                keyboardPwdName: `${savedBooking.guestName || ''} ${savedBooking.bookingNumber || ''}`.trim(),
+                date: Date.now(),
+              };
+              const roomResult = await ttlockPost('/v3/keyboardPwd/add', { ...pwdParams, lockId: newLockId });
+              if (roomResult.keyboardPwdId) {
+                await Booking.updateOne({ _id: savedBooking._id }, { $set: {
+                  'doorAccess.roomKeyboardPwdId': roomResult.keyboardPwdId,
+                  'doorAccess.roomLockId': newLockId,
+                }});
+                console.log(`[Beds24 Sync] Zimmerwechsel TTLock: ${existing.roomName} → ${savedBooking.roomName}, Code ${existing.doorAccess.stayosCode} migriert`);
+              }
+            } catch (e) {
+              console.log(`[Beds24 Sync] TTLock Zimmerwechsel Fehler: ${e.message}`);
+            }
+          }
         }
       }
 
