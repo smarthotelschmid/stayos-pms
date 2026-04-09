@@ -8,6 +8,7 @@ const settingsSchema = new mongoose.Schema({
   customDomainVerified: { type: Boolean, default: false },
   companyName: { type: String },
   companyVatId: { type: String },
+  companyRegNumber: { type: String },
   companyIban: { type: String },
   companyBic: { type: String },
   location: { type: String, default: 'Sitzenberg, NÖ' },
