@@ -21,3 +21,17 @@
 - Portal-Links: `https://${slug}.stayos.at/portal/${token}`
 - Email-Absender Default: `booking@${slug}.stayos.at`
 - Email-Absender Premium: aus `settings.smtp.user`
+
+## Slug — wichtige Hinweise
+- Slug wird beim Onboarding EINMALIG gesetzt
+- Danach permanent gelockt — keine Änderung über UI möglich
+- Änderung nur manuell via DB + Vercel CLI (Support-Aufwand)
+- Konsequenz: alle Portal-Links in Emails brechen bei Slug-Änderung
+
+## Onboarding UX (ToDo)
+- Beim ersten Setup großer Hinweis:
+  "Dieser Link wird in allen Gäste-Emails verwendet.
+   Wähle deinen Slug sorgfältig — er kann später nicht geändert werden."
+- Vorschau zeigen: "Deine Gäste erhalten Links wie:
+  https://mein-hotel.stayos.at/portal/..."
+- Bestätigung mit Checkbox bevor Slug gesetzt wird
