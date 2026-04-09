@@ -2,6 +2,7 @@ const Booking = require('../models/Booking');
 const Guest = require('../models/Guest');
 const EmailTemplate = require('../models/EmailTemplate');
 const Settings = require('../models/Settings');
+const Property = require('../models/Property');
 const { sendEmail } = require('./emailService');
 const { formatAddress } = require('../utils/formatAddress');
 
@@ -45,10 +46,11 @@ async function buildVars(booking, guest, settings) {
     receptionHours: settings?.receptionHours || '08:00 – 22:00',
     effectiveCheckInTime: booking.earlyCheckIn || settings?.checkInTime || '15:00',
     effectiveCheckOutTime: booking.lateCheckOut || settings?.checkOutTime || '11:00',
-    primaryColor: settings?.ci?.primaryColor || '#b5a160',
-    logoUrl: settings?.ci?.logoUrl || '',
-    tagline: settings?.ci?.tagline || '',
-    emailFooter: settings?.ci?.emailFooter || '',
+    primaryColor: '#b5a160', // wird unten von Property überschrieben
+    logoUrl: '',
+    tagline: '',
+    emailFooter: '',
+    emailSignature: '',
     guestPortalLink: booking.guestPortalToken ? `https://${settings?.customDomainVerified && settings?.customDomain ? settings.customDomain : settings?.slug ? settings.slug + '.stayos.at' : 'stayos.at'}/portal/${booking.guestPortalToken}` : '',
   };
 }
@@ -67,6 +69,16 @@ async function sendDoorCodeEmail(bookingId) {
   const template = await EmailTemplate.findOne({ tenantId: TENANT_ID, type: 'doorcode' });
 
   const vars = await buildVars(booking, guest, settings);
+
+  // CI-Variablen aus Property überschreiben
+  const property = booking.propertyId ? await Property.findById(booking.propertyId, 'ci name').lean() : null;
+  if (property?.ci) {
+    vars.primaryColor = property.ci.primaryColor || vars.primaryColor;
+    vars.logoUrl = property.ci.logoUrl || vars.logoUrl;
+    vars.tagline = property.ci.tagline || vars.tagline;
+    vars.emailFooter = property.ci.emailFooter || vars.emailFooter;
+    vars.emailSignature = property.ci.emailSignature || vars.emailSignature;
+  }
 
   let subject = replaceVars(template?.subject?.[lang] || template?.subject?.de || 'Ihr Türcode — {{hotelName}}', vars);
   let html = template?.contentHtml?.[lang] || template?.contentHtml?.de || '';

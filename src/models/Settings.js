@@ -12,18 +12,6 @@ const settingsSchema = new mongoose.Schema({
   companyIban: { type: String },
   companyBic: { type: String },
   billingEmail: { type: String },
-
-  // Corporate Identity
-  ci: {
-    primaryColor:    { type: String, default: '#b5a160' },
-    backgroundColor: { type: String, default: '#f5f5f3' },
-    textColor:       { type: String, default: '#1a1a1a' },
-    fontFamily:      { type: String, default: 'Inter, sans-serif' },
-    logoUrl:         { type: String },
-    tagline:         { type: String },
-    emailSignature:  { type: String },
-    emailFooter:     { type: String },
-  },
   location: { type: String, default: 'Sitzenberg, NÖ' },
   checkInTime: { type: String, default: '15:00' },
   checkOutTime: { type: String, default: '11:00' },
