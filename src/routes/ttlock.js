@@ -310,4 +310,55 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
+// ── POST /api/ttlock/test-doorcode-email — temporär zum Testen ──
+router.post('/test-doorcode-email', async (req, res) => {
+  try {
+    const { bookingId, overrideEmail } = req.body;
+    if (!bookingId) return res.json({ success: false, error: 'bookingId erforderlich' });
+
+    // Direkt Email senden mit Override
+    const booking = await Booking.findById(bookingId);
+    if (!booking) return res.json({ success: false, error: 'Buchung nicht gefunden' });
+
+    const Guest = require('../models/Guest');
+    const EmailTemplate = require('../models/EmailTemplate');
+    const { sendEmail } = require('../services/emailService');
+    const { formatAddress } = require('../utils/formatAddress');
+
+    const guest = booking.guestId ? await Guest.findById(booking.guestId).lean() : null;
+    const to = overrideEmail || booking.contactEmail || guest?.email;
+    if (!to) return res.json({ success: false, error: 'Keine Email — bitte overrideEmail angeben' });
+
+    const settings = await Settings.findOne({ tenantId: TENANT_ID });
+    const template = await EmailTemplate.findOne({ tenantId: TENANT_ID, type: 'doorcode' });
+    const lang = guest?.preferredLanguage || 'de';
+
+    const vars = {
+      guestName: booking.guestName || 'Gast',
+      guestFirstName: guest?.firstName || booking.guestName?.split(' ')[0] || 'Gast',
+      doorCode: booking.doorAccess?.stayosCode || booking.doorAccess?.code || '0000',
+      doorCodePin: booking.doorAccess?.stayosCode || booking.doorAccess?.code || '0000',
+      checkIn: booking.checkIn ? new Date(booking.checkIn).toLocaleDateString('de-AT') : '',
+      checkOut: booking.checkOut ? new Date(booking.checkOut).toLocaleDateString('de-AT') : '',
+      roomName: booking.roomName || '',
+      hotelName: settings?.hotelName || 'smarthotel schmid',
+      hotelAddress: formatAddress(settings) || '',
+      hotelPhone: settings?.hotelPhone || '',
+      hotelPhoneWhatsapp: (settings?.hotelPhone || '').replace(/\D/g, ''),
+      receptionHours: settings?.receptionHours || '08:00 – 22:00',
+      guestPortalLink: booking.guestPortalToken ? `https://${settings?.slug ? settings.slug + '.stayos.at' : 'stayos.at'}/portal/${booking.guestPortalToken}` : '',
+    };
+
+    let subject = (template?.subject?.[lang] || template?.subject?.de || 'Ihr Zugangscode – {{hotelName}}').replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] || '');
+    let html = (template?.contentHtml?.[lang] || template?.contentHtml?.de || '').replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] || '');
+
+    if (!html) return res.json({ success: false, error: 'Kein HTML Template' });
+
+    await sendEmail({ tenantId: TENANT_ID, to, subject, html });
+    res.json({ success: true, message: `Email gesendet an ${to}`, subject });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;
