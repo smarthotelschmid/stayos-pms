@@ -43,7 +43,7 @@ async function buildVars(booking, guest, settings) {
     receptionHours: settings?.receptionHours || '08:00 – 22:00',
     effectiveCheckInTime: booking.earlyCheckIn || settings?.checkInTime || '15:00',
     effectiveCheckOutTime: booking.lateCheckOut || settings?.checkOutTime || '11:00',
-    guestPortalLink: booking.guestPortalToken ? `https://stayos.at/portal/${booking.guestPortalToken}` : '',
+    guestPortalLink: booking.guestPortalToken ? `https://${settings?.slug ? settings.slug + '.stayos.at' : 'stayos.at'}/portal/${booking.guestPortalToken}` : '',
   };
 }
 
