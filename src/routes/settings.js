@@ -24,6 +24,30 @@ router.get('/', async (req, res) => {
   }
 });
 
+// ── GET /api/settings/verify-domain ────────────────────
+router.get('/verify-domain', async (req, res) => {
+  try {
+    const dns = require('dns').promises;
+    const settings = await Settings.findOne({ tenantId: TENANT_ID }, 'customDomain').lean();
+    if (!settings?.customDomain) return res.json({ success: false, error: 'Keine Domain konfiguriert' });
+    try {
+      const cnames = await dns.resolveCname(settings.customDomain);
+      const verified = cnames.some(c => c.includes('vercel'));
+      if (verified) {
+        await Settings.updateOne({ tenantId: TENANT_ID }, { $set: { customDomainVerified: true } });
+        // Vercel Alias setzen
+        const { createSubdomain } = require('../utils/vercelAlias');
+        createSubdomain(settings.customDomain.replace('.stayos.at', '')).catch(() => {});
+      }
+      res.json({ success: true, verified, cnames });
+    } catch (dnsErr) {
+      res.json({ success: true, verified: false, error: 'DNS Auflösung fehlgeschlagen — CNAME nicht gefunden' });
+    }
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
 // ── GET /api/settings/check-slug/:slug ─────────────────
 router.get('/check-slug/:slug', async (req, res) => {
   try {
