@@ -22,20 +22,21 @@ const propertySchema = new mongoose.Schema({
   hotelEmail:    { type: String },
   houseRules:    [{ icon: String, text: String }],
 
-  // Rechnungsstellung
-  billingEntity: {
-    companyName: { type: String },
-    street:      { type: String },
-    streetNo:    { type: String },
-    zip:         { type: String },
-    city:        { type: String },
-    country:     { type: String, default: 'AT' },
-    vatId:       { type: String },
-    taxId:       { type: String },
-    bankIban:    { type: String },
-    bankBic:     { type: String },
-    email:       { type: String },
-  },
+  // Steuern & Abgaben (standortabhängig)
+  kurtaxe:       { type: Number, default: 0 },
+  kurtaxeMinAge: { type: Number, default: 14 },
+
+  // Rechnungsstellung (flach)
+  billingName:    { type: String },
+  billingStreet:  { type: String },
+  billingStreetNo:{ type: String },
+  billingZip:     { type: String },
+  billingCity:    { type: String },
+  billingCountry: { type: String, default: 'AT' },
+  vatId:          { type: String },
+  iban:           { type: String },
+  bic:            { type: String },
+  billingEmail:   { type: String },
 }, { timestamps: true });
 
 propertySchema.index({ tenantId: 1 });
