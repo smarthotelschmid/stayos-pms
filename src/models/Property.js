@@ -45,6 +45,18 @@ const propertySchema = new mongoose.Schema({
   iban:           { type: String },
   bic:            { type: String },
   billingEmail:   { type: String },
+
+  // Corporate Identity
+  ci: {
+    primaryColor:    { type: String, default: '#b5a160' },
+    backgroundColor: { type: String, default: '#f5f5f3' },
+    textColor:       { type: String, default: '#1a1a1a' },
+    fontFamily:      { type: String, default: 'Inter, sans-serif' },
+    logoUrl:         { type: String },
+    tagline:         { type: String },
+    emailSignature:  { type: String },
+    emailFooter:     { type: String },
+  },
 }, { timestamps: true });
 
 propertySchema.index({ tenantId: 1 });
