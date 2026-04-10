@@ -126,6 +126,16 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+router.patch('/:id', async (req, res) => {
+  try {
+    const guest = await Guest.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true, runValidators: true });
+    if (!guest) return res.status(404).json({ success: false, error: 'Gast nicht gefunden' });
+    res.json({ success: true, data: guest });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
 // ── DELETE /api/guests/:id ────────────────────────────
 router.delete('/:id', async (req, res) => {
   try {

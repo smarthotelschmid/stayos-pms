@@ -383,4 +383,17 @@ router.patch('/:id/status', async (req, res) => {
   }
 });
 
+// POST /:id/send-portal — Portal-Link / Türcode-Email manuell senden
+router.post('/:id/send-portal', async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, error: 'Buchung nicht gefunden' });
+    const { sendDoorCodeEmail } = require('../services/doorCodeEmailService');
+    await sendDoorCodeEmail(booking._id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;
