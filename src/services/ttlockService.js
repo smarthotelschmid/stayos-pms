@@ -82,7 +82,7 @@ async function generateDoorCodes() {
       tenantId: TENANT_ID,
       checkIn: { $gte: targetStart, $lte: targetEnd },
       status: { $in: ['confirmed', 'checked-in'] },
-      'doorAccess.stayosCode': { $exists: false },
+      $or: [{ 'doorAccess.stayosCode': { $exists: false } }, { 'doorAccess.stayosCode': null }],
     });
 
     if (bookings.length === 0) {
