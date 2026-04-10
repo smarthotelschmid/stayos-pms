@@ -107,8 +107,11 @@ const bookingSchema = new mongoose.Schema({
   // ── BEGLEITPERSONEN ──────────────────────────────────
   companions: [{
     guestId: { type: mongoose.Schema.Types.ObjectId, ref: 'Guest' },
-    role: { type: String, enum: ['companion', 'child', 'infant'] },
-    age: { type: Number },
+    firstName: { type: String },
+    lastName: { type: String },
+    birthDate: { type: Date },
+    nationality: { type: String },
+    role: { type: String, enum: ['adult', 'child', 'infant'] },
   }],
 
   // ── PREISE ────────────────────────────────────────────
