@@ -109,6 +109,7 @@ router.get('/:token', async (req, res) => {
         effectiveCheckInTime: booking.earlyCheckIn || property?.checkInTime || settings?.checkInTime || '15:00',
         effectiveCheckOutTime: booking.lateCheckOut || property?.checkOutTime || settings?.checkOutTime || '11:00',
         ci: property?.ci || null,
+        checkInFormCompleted: !!booking.checkInForm?.completed,
       },
     });
   } catch (err) {
@@ -172,6 +173,75 @@ router.post('/:token/unlock', async (req, res) => {
     res.json({ success: true, message: target === 'room' ? 'Zimmer geöffnet' : 'Haupteingang geöffnet' });
   } catch (err) {
     res.json({ success: false, error: err.message });
+  }
+});
+
+// PATCH /api/portal/:token/checkin-form — Guest Self Check-in
+router.patch('/:token/checkin-form', async (req, res) => {
+  try {
+    const booking = await Booking.findOne({ tenantId: TENANT_ID, guestPortalToken: req.params.token });
+    if (!booking) return res.json({ success: false, error: 'not_found' });
+
+    const Guest = require('../models/Guest');
+    const Company = require('../models/Company');
+    const f = req.body;
+
+    // Guest updaten
+    if (booking.guestId) {
+      const guestUpdate = {
+        'address.street': f.street || undefined,
+        'address.streetNo': f.streetNo || undefined,
+        'address.zip': f.zip || undefined,
+        'address.city': f.city || undefined,
+        'address.country': f.country || undefined,
+        documentType: f.documentType || undefined,
+        nationality: f.nationality || undefined,
+        documentNumber: f.documentNumber || undefined,
+        birthDate: f.birthDate || undefined,
+        passportExpiry: f.passportExpiry || undefined,
+        businessGuest: !!f.isBusiness,
+      };
+      // Remove undefined
+      Object.keys(guestUpdate).forEach(k => guestUpdate[k] === undefined && delete guestUpdate[k]);
+      await Guest.updateOne({ _id: booking.guestId }, { $set: guestUpdate });
+
+      // Company
+      if (f.isBusiness && f.companyName) {
+        let company = await Company.findOne({ tenantId: TENANT_ID, $or: [{ name: f.companyName }, { vatId: f.companyUid }].filter(q => q.name || q.vatId) });
+        if (!company) {
+          company = await Company.create({
+            tenantId: TENANT_ID,
+            name: f.companyName,
+            vatId: f.companyUid || undefined,
+            address: { street: f.companyStreet, streetNo: f.companyStreetNo, zip: f.companyZip, city: f.companyCity, country: f.companyCountry },
+            invoiceEmail: f.companyEmail || undefined,
+          });
+        }
+        await Guest.updateOne({ _id: booking.guestId }, { $set: { companyId: company._id, companyName: company.name } });
+        await Booking.updateOne({ _id: booking._id }, { $set: { companyId: company._id } });
+      }
+    }
+
+    // Booking checkin form
+    await Booking.updateOne({ _id: booking._id }, { $set: {
+      'checkInForm.completed': true,
+      'checkInForm.completedAt': new Date(),
+      'checkInForm.street': f.street,
+      'checkInForm.zip': f.zip,
+      'checkInForm.city': f.city,
+      'checkInForm.country': f.country,
+      'checkInForm.isBusiness': !!f.isBusiness,
+      'checkInForm.companyName': f.companyName || null,
+      'checkInForm.companyUid': f.companyUid || null,
+      'checkInForm.documentType': f.documentType,
+      'checkInForm.nationality': f.nationality,
+      'checkInForm.documentNumber': f.documentNumber,
+    }});
+
+    const updated = await Booking.findById(booking._id).lean();
+    res.json({ success: true, doorCode: updated.doorAccess?.stayosCode || updated.doorAccess?.code || null });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
