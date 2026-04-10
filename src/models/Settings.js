@@ -14,6 +14,8 @@ const settingsSchema = new mongoose.Schema({
   billingEmail: { type: String },
 
   // Portal Config
+  adminIps: [{ type: String }],
+
   portalConfig: {
     welcomeText: { type: String, default: 'alles ist für Ihren Aufenthalt vorbereitet. Ihren persönlichen Zugangscode und alle Details finden Sie in Ihrem Gästeportal.' },
     checkInHint: { type: String, default: 'Bitte Code am Schloss eingeben und mit # bestätigen.' },

@@ -12,7 +12,7 @@ const { timeToUnix } = require('./ttlockService');
 const { sendDoorCodeEmail } = require('./doorCodeEmailService');
 const ENTRANCE_LOCK_ID = 3321320;
 
-const SYNC_INTERVAL = 1 * 60 * 1000; // 1 Minute (temporär zum Testen)
+const SYNC_INTERVAL = 1 * 60 * 1000; // 1 Minute — Webhook zusätzlich, Polling ist primär
 const TENANT_ID = '507f1f77bcf86cd799439011';
 
 async function syncBookings() {
