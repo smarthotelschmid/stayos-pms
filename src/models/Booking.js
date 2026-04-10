@@ -222,6 +222,15 @@ const bookingSchema = new mongoose.Schema({
   portalOpenCount: { type: Number, default: 0 },
   checkedOutAt: { type: Date },
 
+  // Self Check-in Formular (vom Gästeportal)
+  checkInForm: {
+    completed: { type: Boolean, default: false },
+    completedAt: { type: Date },
+    street: String, zip: String, city: String, country: String,
+    isBusiness: Boolean, companyName: String, companyUid: String,
+    documentType: String, nationality: String, documentNumber: String,
+  },
+
   // Kontaktdaten (kann von Gast-Email abweichen, z.B. Firmen-Email)
   contactEmail: { type: String },
   contactPhone: { type: String },
