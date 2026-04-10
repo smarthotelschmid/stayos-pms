@@ -13,6 +13,7 @@ const { sendDoorCodeEmail } = require('./doorCodeEmailService');
 const ENTRANCE_LOCK_ID = 3321320;
 
 const SYNC_INTERVAL = 1 * 60 * 1000; // 1 Minute — Webhook zusätzlich, Polling ist primär
+const FLOW_START = new Date('2026-04-19T00:00:00+02:00'); // Check-in Flow ab diesem Datum
 const TENANT_ID = '507f1f77bcf86cd799439011';
 
 async function syncBookings() {
@@ -128,7 +129,7 @@ async function syncBookings() {
 
       const result = await Booking.findOneAndUpdate(
         { beds24BookingId: b.id },
-        { $set: updateData, $setOnInsert: { bookingNumber, guestPortalToken: crypto.randomBytes(32).toString('hex') } },
+        { $set: updateData, $setOnInsert: { bookingNumber, guestPortalToken: crypto.randomBytes(32).toString('hex'), 'checkInForm.completed': new Date(bookingData.checkIn) < FLOW_START } },
         { upsert: true, new: true, includeResultMetadata: true }
       );
 
