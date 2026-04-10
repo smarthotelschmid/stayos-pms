@@ -177,7 +177,7 @@ function transformBeds24Guest(b) {
     companyName: decodeHtml(b.company) || null,
     // Company bookings: address belongs to company, not guest
     address: isCompany ? null : {
-      street: b.address || null,
+      street: (b.address || '').replace(/([a-zA-ZäöüÄÖÜß.])(\d)/g, '$1 $2').trim() || null,
       city: b.city || null,
       state: b.state || null,
       zip: b.postcode || null,
@@ -200,7 +200,7 @@ function transformBeds24Company(b) {
     type: isTravel ? 'travel_agency' : 'corporate',
     contactEmail: b.email || null,
     address: {
-      street: b.address || null,
+      street: (b.address || '').replace(/([a-zA-ZäöüÄÖÜß.])(\d)/g, '$1 $2').trim() || null,
       city: b.city || null,
       zip: b.postcode || null,
       country: b.country2 || b.country || null
