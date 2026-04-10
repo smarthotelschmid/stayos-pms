@@ -82,12 +82,30 @@ function extractDoorCode(b) {
   return null;
 }
 
-function mapMealPlan(rateDescription) {
+function mapMealPlan(rateDescription, apiMessage) {
+  // 1. apiMessage hat die zuverlässigste Info (direkt von Booking.com)
+  const msg = (apiMessage || '').toLowerCase();
+  const mealLine = msg.match(/meal plan:\s*([^\n]+)/)?.[1] || '';
+  if (mealLine.includes('frühstück') || mealLine.includes('breakfast')) return 'BB';
+  if (mealLine.includes('halbpension') || mealLine.includes('half board')) return 'HB';
+  if (mealLine.includes('vollpension') || mealLine.includes('full board')) return 'FB';
+  if (mealLine.includes('keine mahlzeit') || mealLine.includes('no meal')) return 'RO';
+
+  // 2. Fallback auf rateDescription
   const r = (rateDescription || '').toLowerCase();
   if (r.includes('frühstück') || r.includes('breakfast') || r.includes('bb')) return 'BB';
   if (r.includes('halbpension') || r.includes('half board') || r.includes('hb')) return 'HB';
   if (r.includes('vollpension') || r.includes('full board') || r.includes('fb')) return 'FB';
   return 'RO';
+}
+
+// Adresse: Straße von Hausnummer trennen
+function splitAddress(addr) {
+  if (!addr) return { street: null, streetNo: null };
+  const normalized = addr.replace(/([a-zA-ZäöüÄÖÜß.])(\d)/g, '$1 $2').replace(/str\./gi, 'straße').trim();
+  const match = normalized.match(/^(.+?)\s+(\d+\s*[a-zA-Z]?)$/);
+  if (match) return { street: match[1].trim(), streetNo: match[2].trim() };
+  return { street: normalized, streetNo: null };
 }
 
 function isEmailFake(email) {
@@ -103,7 +121,7 @@ function transformBeds24Booking(b, roomMapping, unitMapping) {
     beds24RoomId: b.roomId,
     beds24UnitId: b.unitId || null,
     beds24PropertyId: b.propertyId,
-    otaBookingId: b.apiReference || null,
+    otaBookingId: b.apiReference || (b.apiMessage?.match(/Room R.*?Id:\s*(\d+)/)?.[1]) || null,
     referer: b.referer || null,
     bookingNumber: generateBookingNumber(),
     guestName: decodeHtml(
@@ -137,7 +155,7 @@ function transformBeds24Booking(b, roomMapping, unitMapping) {
       currency: 'EUR'
     },
     rateDescription: b.rateDescription || null,
-    mealPlan: mapMealPlan(b.rateDescription),
+    mealPlan: mapMealPlan(b.rateDescription, b.apiMessage),
     country2: b.country2 || b.country || null,
     doorAccess: extractDoorCode(b) || null,
     guestNotes: [b.comments, b.notes, b.message].filter(Boolean).join(' | ') || null,
@@ -176,15 +194,18 @@ function transformBeds24Guest(b) {
     businessGuest: isCompany,
     companyName: decodeHtml(b.company) || null,
     // Company bookings: address belongs to company, not guest
-    address: isCompany ? null : {
-      street: (b.address || '').replace(/([a-zA-ZäöüÄÖÜß.])(\d)/g, '$1 $2').trim() || null,
+    address: isCompany ? null : (() => {
+      const { street, streetNo } = splitAddress(b.address);
+      return {
+      street,
+      streetNo,
       city: b.city || null,
       state: b.state || null,
       zip: b.postcode || null,
       country: b.country2 || b.country || null
-    },
+    };})(),
     arrivalTime: b.arrivalTime || null,
-    mealPlan: mapMealPlan(b.rateDescription),
+    mealPlan: mapMealPlan(b.rateDescription, b.apiMessage),
     source: 'beds24',
     beds24GuestId: guestId
   };
@@ -199,12 +220,10 @@ function transformBeds24Company(b) {
     name,
     type: isTravel ? 'travel_agency' : 'corporate',
     contactEmail: b.email || null,
-    address: {
-      street: (b.address || '').replace(/([a-zA-ZäöüÄÖÜß.])(\d)/g, '$1 $2').trim() || null,
-      city: b.city || null,
-      zip: b.postcode || null,
-      country: b.country2 || b.country || null
-    },
+    address: (() => {
+      const { street, streetNo } = splitAddress(b.address);
+      return { street, streetNo, city: b.city || null, zip: b.postcode || null, country: b.country2 || b.country || null };
+    })(),
     isActive: true,
   };
 }
