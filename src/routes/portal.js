@@ -40,9 +40,11 @@ router.get('/:token', async (req, res) => {
     });
     if (!booking) return res.json({ success: false, error: 'not_found' });
 
-    // Portal-Öffnung tracken (nur Gäste, nicht Admin)
+    // Portal-Öffnung tracken (nicht Admin, nicht Hotel-IP)
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip;
     const isAdmin = !!req.headers.authorization;
-    if (!isAdmin) {
+    const isHotelIp = clientIp === '80.121.231.234' || clientIp === '85.25.46.31';
+    if (!isAdmin && !isHotelIp) {
       await Booking.updateOne({ _id: booking._id }, { $set: { portalOpenedAt: new Date() }, $inc: { portalOpenCount: 1 } });
     }
 
