@@ -109,7 +109,7 @@ router.get('/:token', async (req, res) => {
         effectiveCheckInTime: booking.earlyCheckIn || property?.checkInTime || settings?.checkInTime || '15:00',
         effectiveCheckOutTime: booking.lateCheckOut || property?.checkOutTime || settings?.checkOutTime || '11:00',
         ci: property?.ci || null,
-        checkInFormCompleted: !!booking.checkInForm?.completed,
+        checkInFormCompleted: booking.checkInForm?.completed === true || new Date(booking.checkIn) < new Date('2026-04-19T00:00:00+02:00'),
       },
     });
   } catch (err) {
