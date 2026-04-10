@@ -62,9 +62,9 @@ async function sendDoorCodeEmail(bookingId) {
 
   const guest = booking.guestId ? await Guest.findById(booking.guestId).lean() : null;
 
-  // Email-Empfänger: contactEmail → Gast-Email → Firmen-Email (bei Fake/fehlender Email)
+  // Email-Empfänger: contactEmail → Gast-Email (auch Relay) → Firmen-Email
   let to = booking.contactEmail || guest?.email;
-  if (!to || guest?.emailIsFake) {
+  if (!to) {
     // Fallback auf Firmen-Email wenn companyId vorhanden
     if (booking.companyId) {
       const Company = require('../models/Company');
