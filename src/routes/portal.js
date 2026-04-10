@@ -43,7 +43,9 @@ router.get('/:token', async (req, res) => {
     // Portal-Öffnung tracken (nicht Admin, nicht Hotel-IP)
     const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip;
     const isAdmin = !!req.headers.authorization;
-    const isHotelIp = clientIp === '80.121.231.234' || clientIp === '85.25.46.31';
+    const trackSettings = await Settings.findOne({ tenantId: TENANT_ID }, 'adminIps').lean();
+    const adminIps = trackSettings?.adminIps?.length ? trackSettings.adminIps : ['80.121.231.234', '85.25.46.31'];
+    const isHotelIp = adminIps.includes(clientIp);
     if (!isAdmin && !isHotelIp) {
       await Booking.updateOne({ _id: booking._id }, { $set: { portalOpenedAt: new Date() }, $inc: { portalOpenCount: 1 } });
     }
