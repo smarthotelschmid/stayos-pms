@@ -269,7 +269,7 @@ async function syncBookings() {
         source: 'beds24',
         status: { $nin: ['deleted', 'cancelled', 'checked-out', 'no-show'] },
         manualOverride: { $ne: true },
-        checkOut: { $gte: now }
+        checkOut: { $gte: new Date(now.getTime() + 24 * 60 * 60 * 1000) } // nur CheckOut > morgen — heute auschecke nicht löschen
       },
       {
         $set: {
