@@ -40,6 +40,12 @@ router.get('/:token', async (req, res) => {
     });
     if (!booking) return res.json({ success: false, error: 'not_found' });
 
+    // Portal-Öffnung tracken (nur Gäste, nicht Admin)
+    const isAdmin = !!req.headers.authorization;
+    if (!isAdmin) {
+      await Booking.updateOne({ _id: booking._id }, { $set: { portalOpenedAt: new Date() }, $inc: { portalOpenCount: 1 } });
+    }
+
     // Storniert oder gelöscht
     if (['cancelled', 'deleted'].includes(booking.status)) {
       return res.json({ success: false, error: 'cancelled' });

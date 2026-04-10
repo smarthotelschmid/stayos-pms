@@ -92,6 +92,10 @@ async function sendDoorCodeEmail(bookingId) {
 
   let subject = replaceVars(template?.subject?.[lang] || template?.subject?.de || 'Ihr Türcode — {{hotelName}}', vars);
   let html = template?.contentHtml?.[lang] || template?.contentHtml?.de || '';
+  // Fallback: wenn HTML leer, einfaches Template generieren
+  if (!html) {
+    html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px"><h2>${vars.hotelName}</h2><p>Guten Tag ${vars.guestFirstName},</p><p>alles ist für Ihren Aufenthalt vorbereitet.</p><p><a href="${vars.guestPortalLink}" style="background:#3d4fbc;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:600">Zum Gästeportal →</a></p><p style="color:#888;font-size:13px">${vars.checkIn} – ${vars.checkOut} · ${vars.roomName}</p></div>`;
+  }
   html = replaceVars(html, vars);
 
   if (!html) return;

@@ -12,6 +12,12 @@ const settingsSchema = new mongoose.Schema({
   companyIban: { type: String },
   companyBic: { type: String },
   billingEmail: { type: String },
+
+  // Portal Config
+  portalConfig: {
+    welcomeText: { type: String, default: 'alles ist für Ihren Aufenthalt vorbereitet. Ihren persönlichen Zugangscode und alle Details finden Sie in Ihrem Gästeportal.' },
+    checkInHint: { type: String, default: 'Bitte Code am Schloss eingeben und mit # bestätigen.' },
+  },
   location: { type: String, default: 'Sitzenberg, NÖ' },
   checkInTime: { type: String, default: '15:00' },
   checkOutTime: { type: String, default: '11:00' },
