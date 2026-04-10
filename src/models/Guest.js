@@ -18,13 +18,11 @@ const guestSchema = new mongoose.Schema({
   
   // Geburtsdatum — wichtig für Kurtaxe (Kinder unter 14 befreit)
   birthDate:   { type: Date },
-  
+
   nationality:  { type: String },
   country:      { type: String },
   countryName:  { type: String },
-  dateOfBirth:  { type: Date },
   gender:       { type: String, enum: ['m', 'f', 'd'] },
-  language:     { type: String, default: 'de' },
   preferredLanguage: { type: String },
 
   // ── EMAIL VALIDIERUNG ─────────────────────────────────
@@ -32,10 +30,10 @@ const guestSchema = new mongoose.Schema({
   emailVerified:    { type: String },
 
   // ── AUSWEISDATEN (Meldezettel AT) ────────────────────
-  documentType:   { type: String, enum: ['passport', 'id_card', 'driving_license'] },
-  documentNumber: { type: String },
-  passportNumber: { type: String },
-  passportExpiry: { type: Date },
+  documentType:     { type: String, enum: ['passport', 'id_card', 'driving_license'] },
+  documentNumber:   { type: String },
+  documentIssuedAt: { type: Date },
+  passportExpiry:   { type: Date },
 
   // ── ADRESSE ───────────────────────────────────────────
   address: {
@@ -52,8 +50,8 @@ const guestSchema = new mongoose.Schema({
   companyId:     { type: mongoose.Schema.Types.ObjectId, ref: 'Company' },
   directBookingPotential: { type: Boolean, default: false },
   isTestGuest: { type: Boolean, default: false },
-  segment:       { type: String, enum: ['standard', 'vip', 'regular', 'problem', 'one_time'], default: 'standard' },
-  specialNeeds:  [{ type: String, enum: ['allergiker', 'haustier', 'spaete_anreise', 'fruehes_checkout', 'rollstuhl'] }],
+  segment: { type: String, enum: ['standard', 'vip', 'regular', 'problem', 'one_time'], default: 'standard' },
+  specialNeeds:  [{ type: String, enum: ['allergiker', 'veganer', 'vegetarier', 'foodie', 'wein', 'fahrrad', 'barrierefrei', 'haustier', 'spaete_anreise', 'fruehes_checkout'] }],
   vatId:         { type: String },
 
   // ── CHECK-IN DETAILS ────────────────────────────────
@@ -64,10 +62,7 @@ const guestSchema = new mongoose.Schema({
   // ── STATISTIK ─────────────────────────────────────────
   totalStays:    { type: Number, default: 0 },
   totalSpent:    { type: Number, default: 0 },
-  totalRevenue:  { type: Number, default: 0 },
   lastStayAt:    { type: Date },
-  lastStay:      { type: Date },
-  isVip:         { type: Boolean, default: false },
   tags:          [{ type: String }],
   notes:         { type: String },
   bookings:      [{ type: mongoose.Schema.Types.ObjectId, ref: 'Booking' }],
