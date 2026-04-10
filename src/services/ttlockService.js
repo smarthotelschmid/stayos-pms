@@ -146,7 +146,7 @@ async function generateDoorCodes() {
           const g = await Guest.findById(guestId, 'phone').lean();
           phone = g?.phone;
         }
-        const customCode = gen4Pin(phone);
+        let customCode = gen4Pin(phone);
 
         const pwdParams = {
           clientId: CLIENT_ID, accessToken: token,
@@ -155,7 +155,14 @@ async function generateDoorCodes() {
           keyboardPwdName: pwdName, date: Date.now(),
         };
 
-        const roomResult = await ttlockPost('/v3/keyboardPwd/add', { ...pwdParams, lockId });
+        let roomResult = await ttlockPost('/v3/keyboardPwd/add', { ...pwdParams, lockId });
+        // PIN-Kollision? Zufälligen nehmen
+        if (!roomResult.keyboardPwdId && roomResult.errmsg?.includes('same passcode')) {
+          const retryPin = String(1000 + Math.floor(Math.random() * 9000));
+          pwdParams.keyboardPwd = retryPin;
+          customCode = retryPin;
+          roomResult = await ttlockPost('/v3/keyboardPwd/add', { ...pwdParams, lockId });
+        }
         if (!roomResult.keyboardPwdId) {
           console.log(`[TTLock Cron] Fehler Zimmer ${booking.roomName}: ${roomResult.errmsg || JSON.stringify(roomResult)}`);
           continue;
