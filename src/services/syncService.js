@@ -259,17 +259,19 @@ async function syncBookings() {
       }
     }
 
-    // Soft Delete: Buchungen die in Beds24 nicht mehr existieren
-    // checked-out und cancelled sind ausgeschlossen — nur confirmed/checked-in werden gelöscht
+    // Soft Delete: nur ZUKÜNFTIGE Buchungen die in Beds24 nicht mehr existieren
+    // Bereits begonnene Buchungen (checkIn <= heute) werden NIEMALS automatisch gelöscht
     const beds24Ids = allBookings.map(b => b.id);
     const now = new Date();
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     const orphaned = await Booking.updateMany(
       {
         beds24BookingId: { $nin: beds24Ids },
+        tenantId: TENANT_ID,
         source: 'beds24',
         status: { $nin: ['deleted', 'cancelled', 'checked-out', 'no-show'] },
         manualOverride: { $ne: true },
-        checkOut: { $gte: new Date(now.getTime() + 24 * 60 * 60 * 1000) } // nur CheckOut > morgen — heute auschecke nicht löschen
+        checkIn: { $gt: tomorrow }
       },
       {
         $set: {
