@@ -61,8 +61,18 @@ async function sendDoorCodeEmail(bookingId) {
   if (!booking || !booking.doorAccess?.stayosCode) return;
 
   const guest = booking.guestId ? await Guest.findById(booking.guestId).lean() : null;
-  const to = booking.contactEmail || guest?.email;
-  if (!to || guest?.emailIsFake) return;
+
+  // Email-Empfänger: contactEmail → Gast-Email → Firmen-Email (bei Fake/fehlender Email)
+  let to = booking.contactEmail || guest?.email;
+  if (!to || guest?.emailIsFake) {
+    // Fallback auf Firmen-Email wenn companyId vorhanden
+    if (booking.companyId) {
+      const Company = require('../models/Company');
+      const company = await Company.findById(booking.companyId, 'contactEmail').lean();
+      to = company?.contactEmail;
+    }
+    if (!to) return;
+  }
 
   const settings = await Settings.findOne({ tenantId: TENANT_ID });
   const lang = guest?.preferredLanguage || 'de';
