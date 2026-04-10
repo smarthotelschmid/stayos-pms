@@ -45,6 +45,13 @@ const settingsSchema = new mongoose.Schema({
   doorCodeSendEnabled: { type: Boolean, default: true },
   kurtaxe: { type: Number, default: 2.50 },
   kurtaxeMinAge: { type: Number, default: 14 },
+  ortstaxeConfig: {
+    perPersonPerNight: { type: Number, default: 0 },
+    exemptUnderAge: { type: Number, default: 14 },
+    exemptUnderAge2: { type: Number },
+    exemptLocals: { type: Boolean, default: false },
+    minNights: { type: Number, default: 1 },
+  },
   mwstZimmer: { type: Number, default: 10 },
   mwstFruehstueck: { type: Number, default: 10 },
 
