@@ -67,6 +67,13 @@ const guestSchema = new mongoose.Schema({
   notes:         { type: String },
   bookings:      [{ type: mongoose.Schema.Types.ObjectId, ref: 'Booking' }],
 
+  // ── BEKANNTE MITREISENDE ─────────────────────────────
+  knownCompanions: [{
+    guestId: { type: mongoose.Schema.Types.ObjectId, ref: 'Guest' },
+    relationship: { type: String, enum: ['partner', 'child', 'colleague', 'other'], default: 'other' },
+    since: { type: Date, default: Date.now },
+  }],
+
   // ── EXTERNE REFERENZ ────────────────────────────────
   source:         { type: String },
   beds24GuestId:  { type: String, index: true },
