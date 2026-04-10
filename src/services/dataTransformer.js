@@ -35,10 +35,10 @@ function mapStatus(status) {
   const s = (status || '').toLowerCase();
   if (s === 'confirmed') return 'confirmed';
   if (s === 'cancelled' || s === 'canceled') return 'cancelled';
-  if (s === 'new') return 'new';
+  if (s === 'new') return 'confirmed';
   if (s === 'checked_in') return 'checked-in';
   if (s === 'checked_out') return 'checked-out';
-  return 'new';
+  return 'confirmed';
 }
 
 function cleanCompanyFromGuestName(guestName, companyName) {
