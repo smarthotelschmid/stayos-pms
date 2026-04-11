@@ -17,7 +17,7 @@ const bookingSchema = new mongoose.Schema({
   // Woher kommt die Buchung?
   source: {
     type: String,
-    enum: ['direct', 'booking.com', 'airbnb', 'expedia', 'manual', 'booking', 'beds24'],
+    enum: ['direct', 'booking.com', 'airbnb', 'expedia', 'manual', 'booking', 'beds24', 'walkin'],
     required: true
   },
 

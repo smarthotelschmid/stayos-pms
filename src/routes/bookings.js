@@ -19,14 +19,14 @@ async function findLockForBooking(booking, settings) {
   return lockEntry;
 }
 
-async function generateCode(booking) {
+async function generateCode(booking, opts = {}) {
   const settings = await Settings.findOne({ tenantId: TENANT_ID });
   const lockEntry = await findLockForBooking(booking, settings);
   if (!lockEntry || !settings?.ttlock?.accessToken) return null;
 
   const token = await getToken();
-  const checkInTime = settings.checkInTime || '15:00';
-  const checkOutTime = settings.checkOutTime || '11:00';
+  const checkInTime = opts.overrideCheckInTime || settings.checkInTime || '15:00';
+  const checkOutTime = opts.overrideCheckOutTime || booking.lateCheckOut || settings.checkOutTime || '11:00';
 
   // Vienna Timezone korrekt — TTLock erwartet UTC-Timestamp, wir berechnen Vienna → UTC
   const toViennaMs = (dateStr, timeStr) => {
@@ -228,13 +228,22 @@ router.post('/', async (req, res) => {
       guestPortalToken: crypto.randomBytes(32).toString('hex'),
     });
 
-    // Bei confirmed: TTLock Code sofort generieren
+    // TTLock Code generieren
     try {
-      if (req.body.status === 'confirmed' || !req.body.status) {
+      if (req.body.source === 'walkin') {
+        // Walk-in: Code sofort gültig (ab jetzt), checkedInAt setzen
+        const coTime = req.body.lateCheckOut || '11:00';
+        const da = await generateCode(booking, { overrideCheckInTime: '00:00', overrideCheckOutTime: coTime });
+        if (da) booking.doorAccess = da;
+        await Booking.updateOne({ _id: booking._id }, { $set: { checkedInAt: new Date() } });
+        // Email sofort
+        if (da) {
+          const { sendDoorCodeEmail } = require('../services/doorCodeEmailService');
+          sendDoorCodeEmail(booking._id).catch(e => console.log(`[Email] Walk-in Versand Fehler: ${e.message}`));
+        }
+      } else if (req.body.status === 'confirmed' || !req.body.status) {
         const da = await generateCode(booking);
         if (da) booking.doorAccess = da;
-
-        // Check-in heute? Email sofort senden (Last-Minute Buchung)
         const todayVienna = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Vienna' });
         const ciVienna = new Date(booking.checkIn).toLocaleDateString('en-CA', { timeZone: 'Europe/Vienna' });
         if (da && todayVienna === ciVienna) {
