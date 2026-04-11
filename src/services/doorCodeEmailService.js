@@ -36,6 +36,72 @@ function renderBlocksToHtml(blocks, vars) {
   return out;
 }
 
+function buildFallbackHtml(v) {
+  const accent = v.primaryColor || '#3d4fbc';
+  const logo = v.logoUrl || 'https://smarthotel-schmid.at/wp-content/uploads/2022/12/Logo-Smarthotel-SW-2-1.png';
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f5f6ff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6ff;padding:24px 0">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%">
+
+<!-- HEADER -->
+<tr><td style="background:${accent};padding:28px 36px;text-align:center;border-radius:12px 12px 0 0">
+<img src="${logo}" alt="${v.hotelName || ''}" height="55" style="height:55px;filter:brightness(0) invert(1);-webkit-filter:brightness(0) invert(1)">
+</td></tr>
+
+<!-- BODY -->
+<tr><td style="background:#ffffff;padding:40px 36px;border-radius:0 0 12px 12px">
+
+<!-- Greeting -->
+<p style="font-size:22px;font-weight:700;color:#1a1f3c;margin:0 0 8px">Guten Tag ${v.guestFirstName || 'Gast'},</p>
+<p style="font-size:15px;color:#4a5067;line-height:1.65;margin:0 0 28px">alles ist f&uuml;r Ihren Aufenthalt vorbereitet. Ihren pers&ouml;nlichen Zugangscode und alle wichtigen Informationen finden Sie in Ihrem G&auml;steportal.</p>
+
+<!-- CTA Button -->
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:0 0 32px">
+<a href="${v.guestPortalLink || '#'}" style="display:inline-block;background:${accent};color:#ffffff;padding:16px 40px;border-radius:10px;text-decoration:none;font-size:16px;font-weight:600;letter-spacing:0.3px">Zum G&auml;steportal &rarr;</a>
+</td></tr></table>
+
+<!-- Info Box -->
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6ff;border-radius:10px;margin-bottom:28px"><tr>
+<td width="33%" style="padding:20px 12px;text-align:center;vertical-align:top">
+<div style="font-size:24px;margin-bottom:6px">&#128197;</div>
+<div style="font-size:10px;color:#8890a5;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px">Check-in</div>
+<div style="font-size:14px;font-weight:600;color:#1a1f3c">${v.checkIn || ''}</div>
+<div style="font-size:12px;color:#8890a5">ab ${v.effectiveCheckInTime || '15:00'}</div>
+</td>
+<td width="33%" style="padding:20px 12px;text-align:center;vertical-align:top;border-left:1px solid #e8eaf5;border-right:1px solid #e8eaf5">
+<div style="font-size:24px;margin-bottom:6px">&#128228;</div>
+<div style="font-size:10px;color:#8890a5;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px">Check-out</div>
+<div style="font-size:14px;font-weight:600;color:#1a1f3c">${v.checkOut || ''}</div>
+<div style="font-size:12px;color:#8890a5">bis ${v.effectiveCheckOutTime || '11:00'}</div>
+</td>
+<td width="33%" style="padding:20px 12px;text-align:center;vertical-align:top">
+<div style="font-size:24px;margin-bottom:6px">&#128716;</div>
+<div style="font-size:10px;color:#8890a5;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px">Zimmer</div>
+<div style="font-size:14px;font-weight:600;color:#1a1f3c">${v.roomName || ''}</div>
+<div style="font-size:12px;color:#8890a5">${v.nights || ''} N&auml;chte</div>
+</td>
+</tr></table>
+
+<!-- Divider -->
+<hr style="border:none;height:1px;background:#e8eaf5;margin:0 0 24px">
+
+<!-- Footer -->
+<p style="font-size:13px;color:#8890a5;text-align:center;line-height:1.6;margin:0 0 12px">
+${v.hotelName || 'smarthotel'}<br>
+${v.address || ''}
+</p>
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+<a href="https://wa.me/${(v.hotelPhone || '').replace(/[^0-9]/g, '')}" style="display:inline-block;padding:10px 24px;border-radius:8px;background:#25D366;color:#ffffff;text-decoration:none;font-size:13px;font-weight:600">&#128172; WhatsApp</a>
+</td></tr></table>
+
+</td></tr>
+</table>
+</td></tr></table>
+</body></html>`;
+}
+
 // Variablen im Template ersetzen
 function replaceVars(text, vars) {
   if (!text) return '';
@@ -127,9 +193,9 @@ async function sendDoorCodeEmail(bookingId) {
       html = renderBlocksToHtml(blocks, vars);
     }
   }
-  // Letzter Fallback: einfaches Template
+  // Letzter Fallback: professionelles HTML Template
   if (!html) {
-    html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px"><h2>${vars.hotelName}</h2><p>Guten Tag ${vars.guestFirstName},</p><p>alles ist für Ihren Aufenthalt vorbereitet.</p><p><a href="${vars.guestPortalLink}" style="background:#3d4fbc;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:600">Zum Gästeportal →</a></p><p style="color:#888;font-size:13px">${vars.checkIn} – ${vars.checkOut} · ${vars.roomName}</p></div>`;
+    html = buildFallbackHtml(vars);
   }
   html = replaceVars(html, vars);
 
