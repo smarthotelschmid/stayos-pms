@@ -269,12 +269,14 @@ async function syncBookings(source = 'cron') {
       }
     }
 
-    // Soft Delete: nur ZUKÜNFTIGE Buchungen die in Beds24 nicht mehr existieren
-    // Bereits begonnene Buchungen (checkIn <= heute) werden NIEMALS automatisch gelöscht
+    // Stornierung: Buchungen die in Beds24 nicht mehr existieren → cancelled
+    // Zukünftige: soft-delete. Aktive (checkIn <= heute): cancelled (nicht deleted)
     const beds24Ids = allBookings.map(b => b.id);
     const now = new Date();
     const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    const orphaned = await Booking.updateMany(
+
+    // Zukünftige Buchungen → deleted (wie bisher)
+    const orphanedFuture = await Booking.updateMany(
       {
         beds24BookingId: { $nin: beds24Ids },
         tenantId: TENANT_ID,
@@ -292,8 +294,31 @@ async function syncBookings(source = 'cron') {
         }
       }
     );
-    const removed = orphaned.modifiedCount || 0;
-    if (removed > 0) console.log(`[Beds24 Sync] ${removed} Buchungen soft-deleted`);
+    const removedFuture = orphanedFuture.modifiedCount || 0;
+    if (removedFuture > 0) console.log(`[Beds24 Sync] ${removedFuture} zukünftige Buchungen soft-deleted`);
+
+    // Aktive/vergangene Buchungen die nicht mehr in Beds24 sind → cancelled
+    const orphanedActive = await Booking.updateMany(
+      {
+        beds24BookingId: { $nin: beds24Ids },
+        tenantId: TENANT_ID,
+        source: 'beds24',
+        status: { $in: ['confirmed', 'checked-in'] },
+        manualOverride: { $ne: true },
+        checkIn: { $lte: tomorrow }
+      },
+      {
+        $set: {
+          status: 'cancelled',
+          cancelledAt: now,
+          deleteReason: 'In Beds24 storniert/entfernt'
+        }
+      }
+    );
+    const cancelledCount = orphanedActive.modifiedCount || 0;
+    if (cancelledCount > 0) console.log(`[Beds24 Sync] ${cancelledCount} aktive Buchungen → cancelled (in Beds24 nicht mehr vorhanden)`);
+
+    const removed = removedFuture + cancelledCount;
 
     const summary = {
       synced: allBookings.length,
