@@ -297,15 +297,18 @@ async function syncBookings(source = 'cron') {
     const removedFuture = orphanedFuture.modifiedCount || 0;
     if (removedFuture > 0) console.log(`[Beds24 Sync] ${removedFuture} zukünftige Buchungen soft-deleted`);
 
-    // Aktive/vergangene Buchungen die nicht mehr in Beds24 sind → cancelled
+    // Aktive Buchungen mit Check-in HEUTE ODER ZUKUNFT die nicht mehr in Beds24 sind → cancelled
+    // Vergangene (check-out bereits vorbei) ignorieren — die sind einfach abgereist
+    const todayStr = now.toLocaleDateString('en-CA', { timeZone: 'Europe/Vienna' });
+    const todayDate = new Date(todayStr + 'T00:00:00Z');
     const orphanedActive = await Booking.updateMany(
       {
         beds24BookingId: { $nin: beds24Ids },
         tenantId: TENANT_ID,
         source: 'beds24',
-        status: { $in: ['confirmed', 'checked-in'] },
+        status: { $in: ['confirmed'] },
         manualOverride: { $ne: true },
-        checkIn: { $lte: tomorrow }
+        checkIn: { $gte: todayDate }
       },
       {
         $set: {
