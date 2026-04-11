@@ -10,30 +10,48 @@ const TENANT_ID = '507f1f77bcf86cd799439011';
 
 function renderBlocksToHtml(blocks, vars) {
   const rv = (s) => Object.entries(vars).reduce((t, [k, v]) => t.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v || ''), s || '');
-  let out = '<div style="font-family:-apple-system,sans-serif;max-width:600px;margin:0 auto;padding:24px">';
+  const accent = vars.primaryColor || '#3d4fbc';
+  const logo = vars.logoUrl || 'https://smarthotel-schmid.at/wp-content/uploads/2022/12/Logo-Smarthotel-SW-2-1.png';
+
+  let body = '';
   for (const b of blocks) {
     if (b.type === 'text') {
-      const size = b.size === 'small' ? 'font-size:13px;color:#888;' : 'font-size:15px;color:#333;line-height:1.6;';
+      const size = b.size === 'small' ? 'font-size:13px;color:#8890a5;' : 'font-size:15px;color:#4a5067;line-height:1.65;';
       const align = b.align ? `text-align:${b.align};` : '';
-      out += `<p style="${size}${align}">${rv(b.content).replace(/\n/g, '<br>')}</p>`;
+      body += `<p style="${size}${align}margin:0 0 16px">${rv(b.content).replace(/\n/g, '<br>')}</p>`;
     } else if (b.type === 'button') {
-      const color = b.color || '#3d4fbc';
-      const align = b.align || 'center';
-      out += `<p style="text-align:${align};margin:24px 0"><a href="${rv(b.url)}" style="background:${color};color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;display:inline-block">${rv(b.content)}</a></p>`;
+      const color = b.color || accent;
+      body += `<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="${b.align || 'center'}" style="padding:8px 0 24px"><a href="${rv(b.url)}" style="display:inline-block;background:${color};color:#fff;padding:16px 40px;border-radius:10px;text-decoration:none;font-weight:600;font-size:16px">${rv(b.content)}</a></td></tr></table>`;
     } else if (b.type === 'columns') {
-      out += '<table style="width:100%;margin:16px 0" cellpadding="0" cellspacing="0"><tr>';
+      body += '<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6ff;border-radius:10px;margin:16px 0"><tr>';
       for (const col of (b.cols || [])) {
-        out += `<td style="padding:8px 12px;text-align:center;background:#f8f8f6;border-radius:6px"><div style="font-size:20px;margin-bottom:4px">${col.icon || ''}</div><div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.5px">${rv(col.label)}</div><div style="font-size:14px;font-weight:600;color:#333;margin-top:2px">${rv(col.value)}</div></td>`;
+        body += `<td style="padding:16px 12px;text-align:center;vertical-align:top"><div style="font-size:22px;margin-bottom:4px">${col.icon || ''}</div><div style="font-size:10px;color:#8890a5;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:2px">${rv(col.label)}</div><div style="font-size:14px;font-weight:600;color:#1a1f3c">${rv(col.value)}</div></td>`;
       }
-      out += '</tr></table>';
+      body += '</tr></table>';
     } else if (b.type === 'divider') {
-      out += '<hr style="border:none;height:1px;background:#eee;margin:20px 0">';
+      body += '<hr style="border:none;height:1px;background:#e8eaf5;margin:24px 0">';
     } else if (b.type === 'image' && b.url) {
-      out += `<img src="${rv(b.url)}" alt="" style="width:100%;border-radius:8px;margin:16px 0">`;
+      body += `<img src="${rv(b.url)}" alt="" style="width:100%;border-radius:8px;margin:16px 0">`;
     }
   }
-  out += '</div>';
-  return out;
+
+  // Wrap mit Header + Footer
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f5f6ff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6ff;padding:24px 0"><tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%">
+<tr><td style="background:${accent};padding:28px 36px;text-align:center;border-radius:12px 12px 0 0">
+<img src="${logo}" alt="${vars.hotelName || ''}" height="55" style="height:55px;filter:brightness(0) invert(1);-webkit-filter:brightness(0) invert(1)">
+</td></tr>
+<tr><td style="background:#ffffff;padding:40px 36px;border-radius:0 0 12px 12px">
+${body}
+<hr style="border:none;height:1px;background:#e8eaf5;margin:24px 0 16px">
+<p style="font-size:13px;color:#8890a5;text-align:center;line-height:1.6;margin:0 0 12px">${vars.hotelName || ''}<br>${vars.address || ''}</p>
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+<a href="https://wa.me/${(vars.hotelPhone || '').replace(/[^0-9]/g, '')}" style="display:inline-block;padding:10px 24px;border-radius:8px;background:#25D366;color:#fff;text-decoration:none;font-size:13px;font-weight:600">&#128172; WhatsApp</a>
+</td></tr></table>
+</td></tr></table>
+</td></tr></table></body></html>`;
 }
 
 function buildFallbackHtml(v) {
