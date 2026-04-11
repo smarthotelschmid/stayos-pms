@@ -8,6 +8,34 @@ const { formatAddress } = require('../utils/formatAddress');
 
 const TENANT_ID = '507f1f77bcf86cd799439011';
 
+function renderBlocksToHtml(blocks, vars) {
+  const rv = (s) => Object.entries(vars).reduce((t, [k, v]) => t.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v || ''), s || '');
+  let out = '<div style="font-family:-apple-system,sans-serif;max-width:600px;margin:0 auto;padding:24px">';
+  for (const b of blocks) {
+    if (b.type === 'text') {
+      const size = b.size === 'small' ? 'font-size:13px;color:#888;' : 'font-size:15px;color:#333;line-height:1.6;';
+      const align = b.align ? `text-align:${b.align};` : '';
+      out += `<p style="${size}${align}">${rv(b.content).replace(/\n/g, '<br>')}</p>`;
+    } else if (b.type === 'button') {
+      const color = b.color || '#3d4fbc';
+      const align = b.align || 'center';
+      out += `<p style="text-align:${align};margin:24px 0"><a href="${rv(b.url)}" style="background:${color};color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;display:inline-block">${rv(b.content)}</a></p>`;
+    } else if (b.type === 'columns') {
+      out += '<table style="width:100%;margin:16px 0" cellpadding="0" cellspacing="0"><tr>';
+      for (const col of (b.cols || [])) {
+        out += `<td style="padding:8px 12px;text-align:center;background:#f8f8f6;border-radius:6px"><div style="font-size:20px;margin-bottom:4px">${col.icon || ''}</div><div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.5px">${rv(col.label)}</div><div style="font-size:14px;font-weight:600;color:#333;margin-top:2px">${rv(col.value)}</div></td>`;
+      }
+      out += '</tr></table>';
+    } else if (b.type === 'divider') {
+      out += '<hr style="border:none;height:1px;background:#eee;margin:20px 0">';
+    } else if (b.type === 'image' && b.url) {
+      out += `<img src="${rv(b.url)}" alt="" style="width:100%;border-radius:8px;margin:16px 0">`;
+    }
+  }
+  out += '</div>';
+  return out;
+}
+
 // Variablen im Template ersetzen
 function replaceVars(text, vars) {
   if (!text) return '';
@@ -92,7 +120,14 @@ async function sendDoorCodeEmail(bookingId) {
 
   let subject = replaceVars(template?.subject?.[lang] || template?.subject?.de || 'Ihr Türcode — {{hotelName}}', vars);
   let html = template?.contentHtml?.[lang] || template?.contentHtml?.de || '';
-  // Fallback: wenn HTML leer, einfaches Template generieren
+  // Fallback: contentJson Blocks zu HTML rendern wenn contentHtml leer
+  if (!html) {
+    const blocks = template?.contentJson?.[lang] || template?.contentJson?.de || [];
+    if (blocks.length > 0) {
+      html = renderBlocksToHtml(blocks, vars);
+    }
+  }
+  // Letzter Fallback: einfaches Template
   if (!html) {
     html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px"><h2>${vars.hotelName}</h2><p>Guten Tag ${vars.guestFirstName},</p><p>alles ist für Ihren Aufenthalt vorbereitet.</p><p><a href="${vars.guestPortalLink}" style="background:#3d4fbc;color:#fff;padding:12px 28px;border-radius:6px;text-decoration:none;font-weight:600">Zum Gästeportal →</a></p><p style="color:#888;font-size:13px">${vars.checkIn} – ${vars.checkOut} · ${vars.roomName}</p></div>`;
   }
