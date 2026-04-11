@@ -23,6 +23,7 @@ const settingsSchema = new mongoose.Schema({
   location: { type: String, default: 'Sitzenberg, NÖ' },
   checkInTime: { type: String, default: '15:00' },
   checkOutTime: { type: String, default: '11:00' },
+  geschaeftstagEndeUhr: { type: Number, default: 4 },
   hotelCountry: { type: String, default: 'AT' },
   hotelStreet: { type: String },
   hotelStreetNo: { type: String },

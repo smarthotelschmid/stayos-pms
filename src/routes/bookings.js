@@ -244,9 +244,11 @@ router.post('/', async (req, res) => {
       } else if (req.body.status === 'confirmed' || !req.body.status) {
         const da = await generateCode(booking);
         if (da) booking.doorAccess = da;
-        const todayVienna = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Vienna' });
+        const { getHotelDatum } = require('../utils/hotelDatum');
+        const settings2 = await Settings.findOne({ tenantId: TENANT_ID }, 'geschaeftstagEndeUhr').lean();
+        const hotelHeute = getHotelDatum(new Date(), settings2?.geschaeftstagEndeUhr);
         const ciVienna = new Date(booking.checkIn).toLocaleDateString('en-CA', { timeZone: 'Europe/Vienna' });
-        if (da && todayVienna === ciVienna) {
+        if (da && hotelHeute === ciVienna) {
           const { sendDoorCodeEmail } = require('../services/doorCodeEmailService');
           sendDoorCodeEmail(booking._id).catch(e => console.log(`[Email] Sofort-Versand Fehler: ${e.message}`));
         }
@@ -369,9 +371,11 @@ router.patch('/:id/status', async (req, res) => {
         const da = await generateCode(booking);
         // Check-in heute? Email sofort
         if (da) {
-          const todayVienna = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Vienna' });
+          const { getHotelDatum } = require('../utils/hotelDatum');
+          const stg = await Settings.findOne({ tenantId: TENANT_ID }, 'geschaeftstagEndeUhr').lean();
+          const hotelHeute = getHotelDatum(new Date(), stg?.geschaeftstagEndeUhr);
           const ciVienna = new Date(booking.checkIn).toLocaleDateString('en-CA', { timeZone: 'Europe/Vienna' });
-          if (todayVienna === ciVienna) {
+          if (hotelHeute === ciVienna) {
             const { sendDoorCodeEmail } = require('../services/doorCodeEmailService');
             sendDoorCodeEmail(booking._id).catch(e => console.log(`[Email] Sofort-Versand Fehler: ${e.message}`));
           }
