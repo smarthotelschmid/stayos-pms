@@ -68,8 +68,8 @@ router.get('/beds24/sync', async (req, res) => {
 
 // POST /api/webhooks/beds24 — Webhook Empfang
 router.post('/webhooks/beds24', (req, res) => {
-  console.log('[Beds24 Webhook]', JSON.stringify(req.body, null, 2));
-  syncBookings().catch(e => console.log('[Beds24 Webhook] Sync Fehler:', e.message));
+  console.log('[QUELLE: Webhook] Empfangen:', JSON.stringify(req.body));
+  syncBookings('webhook').catch(e => console.log('[QUELLE: Webhook] Sync Fehler:', e.message));
   res.status(200).json({ status: 'ok' });
 });
 
