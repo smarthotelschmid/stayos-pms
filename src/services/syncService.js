@@ -16,7 +16,7 @@ const SYNC_INTERVAL = 1 * 60 * 1000; // 1 Minute — Webhook zusätzlich, Pollin
 const FLOW_START = new Date('2026-04-19T00:00:00+02:00'); // Check-in Flow ab diesem Datum
 const TENANT_ID = '507f1f77bcf86cd799439011';
 
-async function syncBookings() {
+async function syncBookings(source = 'cron') {
   try {
     const today = new Date();
     const future = new Date(today);
@@ -291,7 +291,7 @@ async function syncBookings() {
       created, updated, guestsCreated, removed,
       timestamp: new Date().toISOString()
     };
-    console.log(`[Beds24 Sync] ${summary.synced} Buchungen (${created} neu, ${updated} aktualisiert, ${removed} soft-deleted), ${guestsCreated} neue Gäste`);
+    console.log(`[QUELLE: ${source}] ${summary.synced} Buchungen (${created} neu, ${updated} aktualisiert, ${removed} soft-deleted), ${guestsCreated} neue Gäste`);
     return summary;
   } catch (err) {
     console.error('[Beds24 Sync] Fehler:', err.message);
