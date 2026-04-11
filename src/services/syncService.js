@@ -316,7 +316,7 @@ function startSync() {
     }
   }, SYNC_INTERVAL);
 
-  console.log('[Beds24 Sync] Gestartet — Intervall: 30 Minuten');
+  console.log('[Beds24 Sync] Gestartet — Intervall: 1 Minute');
 }
 
 module.exports = { syncBookings, startSync };
