@@ -3,6 +3,29 @@ const path = require('path');
 
 const CREDENTIALS_FILE = path.join(__dirname, '..', '..', 'beds24-credentials.json');
 const BASE_URL = 'https://beds24.com/api/v2';
+const TIMEOUT_MS = 30000;
+const MAX_RETRIES = 3;
+
+async function fetchWithRetry(url, options = {}, retries = MAX_RETRIES) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    try {
+      const res = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timer);
+      return res;
+    } catch (err) {
+      clearTimeout(timer);
+      const reason = err.name === 'AbortError' ? 'Timeout (30s)' : err.message;
+      if (attempt < retries) {
+        console.log(`[Beds24 API] Versuch ${attempt}/${retries} fehlgeschlagen: ${reason} — Retry in ${attempt * 2}s`);
+        await new Promise(r => setTimeout(r, attempt * 2000));
+      } else {
+        throw new Error(`${reason} (nach ${retries} Versuchen)`);
+      }
+    }
+  }
+}
 
 class Beds24Service {
   _readCredentials() {
@@ -16,7 +39,7 @@ class Beds24Service {
 
   async authenticate(tokenOrInviteCode) {
     // Prüfe ob es ein gültiger Token ist (Longlife Token)
-    const detailsRes = await fetch(`${BASE_URL}/authentication/details`, {
+    const detailsRes = await fetchWithRetry(`${BASE_URL}/authentication/details`, {
       headers: { token: tokenOrInviteCode }
     });
     const details = await detailsRes.json();
@@ -32,7 +55,7 @@ class Beds24Service {
     }
 
     // Sonst als Invite Code behandeln
-    const res = await fetch(`${BASE_URL}/authentication/setup`, {
+    const res = await fetchWithRetry(`${BASE_URL}/authentication/setup`, {
       headers: { code: tokenOrInviteCode }
     });
     const data = await res.json();
@@ -56,7 +79,7 @@ class Beds24Service {
     const expiryMs = new Date(creds.tokenExpiry).getTime();
     if (expiryMs > Date.now() + 60000) return creds.token;
 
-    const res = await fetch(`${BASE_URL}/authentication/token`, {
+    const res = await fetchWithRetry(`${BASE_URL}/authentication/token`, {
       headers: { refreshToken: creds.refreshToken }
     });
     const data = await res.json();
@@ -73,7 +96,7 @@ class Beds24Service {
     const query = { arrival_from: fromDate, arrival_to: toDate, includeGuests: 'true', includeInfoItems: 'true' };
     if (page && page > 1) query.page = page;
     const params = new URLSearchParams(query);
-    const res = await fetch(`${BASE_URL}/bookings?${params}`, {
+    const res = await fetchWithRetry(`${BASE_URL}/bookings?${params}`, {
       headers: { token }
     });
     const data = await res.json();
@@ -84,7 +107,7 @@ class Beds24Service {
   async getCalendar(roomId, fromDate, toDate) {
     const token = await this.getToken();
     const params = new URLSearchParams({ roomId, startDate: fromDate, endDate: toDate });
-    const res = await fetch(`${BASE_URL}/inventory/rooms/calendar?${params}`, {
+    const res = await fetchWithRetry(`${BASE_URL}/inventory/rooms/calendar?${params}`, {
       headers: { token }
     });
     const data = await res.json();
@@ -94,7 +117,7 @@ class Beds24Service {
 
   async updateCalendar(roomId, calendarEntries) {
     const token = await this.getToken();
-    const res = await fetch(`${BASE_URL}/inventory/rooms/calendar`, {
+    const res = await fetchWithRetry(`${BASE_URL}/inventory/rooms/calendar`, {
       method: 'POST',
       headers: { token, 'Content-Type': 'application/json' },
       body: JSON.stringify([{ roomId, calendar: calendarEntries }])
