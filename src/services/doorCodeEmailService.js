@@ -46,7 +46,7 @@ function renderBlocksToHtml(blocks, vars) {
 <tr><td style="background:#ffffff;padding:40px 36px;border-radius:0 0 12px 12px">
 ${body}
 <hr style="border:none;height:1px;background:#e8eaf5;margin:24px 0 16px">
-<p style="font-size:13px;color:#8890a5;text-align:center;line-height:1.6;margin:0 0 12px">${vars.hotelName || ''}<br>${vars.address || ''}</p>
+<p style="font-size:13px;color:#8890a5;text-align:center;line-height:1.6;margin:0 0 12px">${vars.hotelName || ''}<br><a href="${vars.googleMapsUrl || `https://maps.google.com/?q=${encodeURIComponent(vars.address || '')}`}" style="color:#8890a5;text-decoration:none">${vars.address || ''}</a></p>
 <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
 <a href="https://wa.me/${(vars.hotelPhone || '').replace(/[^0-9]/g, '')}" style="display:inline-block;padding:10px 24px;border-radius:8px;background:#25D366;color:#fff;text-decoration:none;font-size:13px;font-weight:600">&#128172; WhatsApp</a>
 </td></tr></table>
@@ -108,7 +108,7 @@ function buildFallbackHtml(v) {
 <!-- Footer -->
 <p style="font-size:13px;color:#8890a5;text-align:center;line-height:1.6;margin:0 0 12px">
 ${v.hotelName || 'smarthotel'}<br>
-${v.address || ''}
+<a href="${v.googleMapsUrl || `https://maps.google.com/?q=${encodeURIComponent(v.address || '')}`}" style="color:#8890a5;text-decoration:none">${v.address || ''}</a>
 </p>
 <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
 <a href="https://wa.me/${(v.hotelPhone || '').replace(/[^0-9]/g, '')}" style="display:inline-block;padding:10px 24px;border-radius:8px;background:#25D366;color:#ffffff;text-decoration:none;font-size:13px;font-weight:600">&#128172; WhatsApp</a>
@@ -151,6 +151,8 @@ async function buildVars(booking, guest, settings) {
     arrivalTime: settings?.checkInTime || '15:00',
     hotelName: settings?.hotelName || 'smarthotel schmid',
     hotelAddress: formatAddress(settings) || settings?.location || '',
+    address: formatAddress(settings) || settings?.location || '',
+    googleMapsUrl: settings?.googleMapsUrl || '',
     hotelPhone: settings?.hotelPhone || '',
     hotelPhoneWhatsapp: (settings?.hotelPhone || '').replace(/\D/g, ''),
     hotelEmail: settings?.hotelEmail || settings?.smtp?.user || '',
