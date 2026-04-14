@@ -60,6 +60,7 @@ async function buildVars(booking, guest, settings, property) {
     effectiveCheckOutTime: booking.lateCheckOut || settings?.checkOutTime || '11:00',
     primaryColor: property?.ci?.primaryColor || '#3d4fbc',
     logoUrl: property?.ci?.logoUrl || 'https://smarthotel-schmid.at/wp-content/uploads/2022/12/Logo-Smarthotel-SW-2-1.png',
+    guestPortalUrl: booking.guestPortalToken ? `https://guest.stayos.at/${booking.guestPortalToken}` : '',
   };
 }
 
@@ -134,21 +135,15 @@ function buildConfirmationText(v) {
     `* Naechte:   ${v.nights}`,
     `* Nummer:    ${v.bookingNumber}`,
     ``,
-    `Ihren Tuercode senden wir Ihnen rechtzeitig vor Anreise separat zu.`,
+    `Ihr Gastportal: ${v.guestPortalUrl}`,
     ``,
     `Adresse:`,
     `${v.hotelName}`,
-    `${v.address}`,
-    v.googleMapsUrl ? v.googleMapsUrl : `https://maps.google.com/?q=${encodeURIComponent(v.address || '')}`,
-    ``,
-    `Bei Fragen erreichen Sie uns unter:`,
-    `* Telefon: ${v.hotelPhone}`,
-    `* E-Mail:  ${v.hotelEmail}`,
-    v.hotelWebsite ? `* Web:     ${v.hotelWebsite}` : null,
+    `${v.hotelAddress}`,
     ``,
     `Herzliche Gruesse`,
     `${v.hotelName}`,
-  ].filter(l => l !== null).join('\n');
+  ].join('\n');
 }
 
 function buildCancellationHtml(v) {
