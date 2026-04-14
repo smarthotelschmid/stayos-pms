@@ -5,6 +5,7 @@ const Settings = require('../models/Settings');
 const Property = require('../models/Property');
 const { sendEmail } = require('./emailService');
 const { formatAddress } = require('../utils/formatAddress');
+const { titleCase } = require('../utils/formatName');
 
 const TENANT_ID = '507f1f77bcf86cd799439011';
 
@@ -134,8 +135,8 @@ function fmtDateDE(d) {
 
 async function buildVars(booking, guest, settings) {
   return {
-    guestName: booking.guestName || `${guest?.firstName || ''} ${guest?.lastName || ''}`.trim() || 'Gast',
-    guestFirstName: guest?.firstName || '',
+    guestName: titleCase(booking.guestName || `${guest?.firstName || ''} ${guest?.lastName || ''}`.trim()) || 'Gast',
+    guestFirstName: titleCase(guest?.firstName || ''),
     guestEmail: guest?.email || booking.contactEmail || '',
     guestPhone: guest?.phone || booking.contactPhone || '',
     guestLanguage: guest?.preferredLanguage || 'de',
