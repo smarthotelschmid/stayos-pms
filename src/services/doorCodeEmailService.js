@@ -233,7 +233,7 @@ async function sendDoorCodeEmail(bookingId) {
 // Batch: alle heutigen Buchungen mit Code aber ohne gesendete Email
 async function sendDoorCodeEmailsForToday() {
   const template = await EmailTemplate.findOne({ tenantId: TENANT_ID, type: 'doorcode' });
-  const daysBefore = template?.daysBefore !== undefined ? template.daysBefore : 1;
+  const daysBefore = template?.daysBefore !== undefined ? template.daysBefore : 0;
 
   const targetDate = new Date();
   targetDate.setDate(targetDate.getDate() + daysBefore);

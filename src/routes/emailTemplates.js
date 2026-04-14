@@ -139,11 +139,10 @@ router.post('/:type', async (req, res) => {
       { upsert: true, new: true }
     );
 
-    // Crons neustarten wenn Timing geändert wurde
-    if (req.params.type === 'doorcode' && (generateTime !== undefined || sendTime !== undefined || daysBefore !== undefined)) {
+    // Email-Cron neustarten wenn Timing geändert wurde
+    // (Code-Generierung hat keinen eigenen Cron mehr — erfolgt im Sync bei Buchungseingang)
+    if (req.params.type === 'doorcode' && (sendTime !== undefined || daysBefore !== undefined)) {
       try {
-        const { restartGenerateCron } = require('../services/ttlockService');
-        await restartGenerateCron();
         const restartEmailCron = req.app.get('restartEmailCron');
         if (restartEmailCron) await restartEmailCron();
       } catch (e) { console.log('[EmailTemplates] Cron-Restart:', e.message); }

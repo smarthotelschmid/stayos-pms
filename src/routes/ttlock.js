@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Settings = require('../models/Settings');
 const { getToken, ttlockPost, TTLOCK_API, CLIENT_ID, CLIENT_SECRET, TENANT_ID } = require('../services/ttlockHelper');
-const { generateDoorCodes } = require('../services/ttlockService');
+const { syncBookings } = require('../services/syncService');
 
 // ── POST /api/ttlock/auth ──────────────────────────────
 // Login bei TTLock mit username/password
@@ -203,12 +203,13 @@ router.post('/locks/:lockId/code', async (req, res) => {
   }
 });
 
-// ── GET /api/ttlock/status ─────────────────────────────
-// ── POST /api/ttlock/cron/run ───��────────────────────��──
+// ── POST /api/ttlock/cron/run ──────────────────────────
+// Triggert einen manuellen Sync — Codes werden dabei inline
+// für alle confirmed Buchungen ohne stayosCode erzeugt.
 router.post('/cron/run', async (req, res) => {
   try {
-    const result = await generateDoorCodes();
-    res.json({ success: true, ...result });
+    const summary = await syncBookings('manual');
+    res.json({ success: true, ...summary });
   } catch (err) {
     res.json({ success: false, error: err.message });
   }

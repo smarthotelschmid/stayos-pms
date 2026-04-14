@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const emailTemplateSchema = new mongoose.Schema({
   tenantId: { type: String, required: true },
-  type: { type: String, enum: ['doorcode', 'confirmation', 'review', 'whatsapp'], required: true },
+  type: { type: String, enum: ['doorcode', 'confirmation', 'cancellation', 'review', 'whatsapp'], required: true },
 
   subject: {
     de: { type: String, default: '' },
@@ -27,7 +27,7 @@ const emailTemplateSchema = new mongoose.Schema({
   // daysBefore:   wie viele Tage vor Check-in (0 = am Anreisetag, 1 = Vortag)
   generateTime: { type: String, default: '00:00' },
   sendTime:     { type: String, default: '06:00' },
-  daysBefore:   { type: Number, default: 1 },
+  daysBefore:   { type: Number, default: 0 },
 
 }, { timestamps: true });
 
