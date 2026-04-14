@@ -70,7 +70,7 @@ async function generateCode(booking, opts = {}) {
   const guestId = (booking.guestId?._id || booking.guestId)?.toString();
   let phone = null;
   if (guestId && guestId !== '507f1f77bcf86cd799439011') {
-    const guest = await Guest.findById(guestId, 'phone').lean();
+    const guest = await Guest.findOne({ _id: guestId, tenantId: TENANT_ID }, 'phone').lean();
     phone = guest?.phone;
   }
   const customCode = gen4Pin(phone);
@@ -127,7 +127,7 @@ async function deleteCode(booking) {
 router.get('/', async (req, res) => {
   try {
     const { from, to, status, includeDeleted, limit: limitParam, page: pageParam } = req.query;
-    const filter = {};
+    const filter = { tenantId: TENANT_ID };
 
     // Datum-Filter: from → checkOut >= from, to → checkIn <= to
     if (from) filter.checkOut = { $gte: new Date(from) };
@@ -163,7 +163,8 @@ router.get('/', async (req, res) => {
 // Neue Buchung anlegen
 router.post('/', async (req, res) => {
   try {
-    const { roomId, checkIn, checkOut, tenantId } = req.body;
+    const { roomId, checkIn, checkOut } = req.body;
+    const tenantId = req.body.tenantId || TENANT_ID;
 
     // Verfügbarkeitsprüfung — doppelte Buchung verhindern
     const conflict = await Booking.findOne({
@@ -218,11 +219,12 @@ router.post('/', async (req, res) => {
 
     // Buchungsnummer automatisch generieren: SCH-XXXXXX
     const year = new Date().getFullYear();
-    const count = await Booking.countDocuments();
+    const count = await Booking.countDocuments({ tenantId });
     const bookingNumber = `SCH-${String(count + 1).padStart(6, '0')}`;
 
     const booking = await Booking.create({
       ...req.body,
+      tenantId,
       guestId,
       bookingNumber,
       guestPortalToken: crypto.randomBytes(32).toString('hex'),
@@ -281,6 +283,7 @@ router.get('/search', async (req, res) => {
     else orConditions.push({ externalId: regex });
 
     const bookings = await Booking.find({
+      tenantId: TENANT_ID,
       $or: orConditions
     }).sort({ checkIn: -1 }).limit(10).populate('guestId', 'firstName lastName');
     res.json({ success: true, count: bookings.length, data: bookings });
@@ -292,7 +295,7 @@ router.get('/search', async (req, res) => {
 // ── GET /api/bookings/:id ──────────────────────────────
 router.get('/:id', async (req, res) => {
   try {
-    const booking = await Booking.findById(req.params.id)
+    const booking = await Booking.findOne({ _id: req.params.id, tenantId: TENANT_ID })
       .select('-checkInToken -checkInTokenExpiry')
       .populate('guestId', 'firstName lastName email phone')
       .populate('roomId', 'number name type pricePerNight floor maxGuests amenities');
@@ -307,10 +310,11 @@ router.get('/:id', async (req, res) => {
 // Buchung aktualisieren z.B. Status ändern
 router.put('/:id', async (req, res) => {
   try {
-    const booking = await Booking.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true
-    });
+    const booking = await Booking.findOneAndUpdate(
+      { _id: req.params.id, tenantId: TENANT_ID },
+      req.body,
+      { new: true, runValidators: true }
+    );
     if (!booking) return res.status(404).json({ success: false, error: 'Buchung nicht gefunden' });
     res.json({ success: true, data: booking });
   } catch (err) {
@@ -322,14 +326,18 @@ router.put('/:id', async (req, res) => {
 router.patch('/:id', async (req, res) => {
   try {
     // Alte Buchung VOR Update laden (für Zimmerwechsel-Erkennung)
-    const oldBooking = await Booking.findById(req.params.id).lean();
+    const oldBooking = await Booking.findOne({ _id: req.params.id, tenantId: TENANT_ID }).lean();
     if (!oldBooking) return res.status(404).json({ success: false, error: 'Buchung nicht gefunden' });
 
     const update = {};
     for (const [key, val] of Object.entries(req.body)) {
       update[key] = val;
     }
-    const booking = await Booking.findByIdAndUpdate(req.params.id, { $set: update }, { new: true });
+    const booking = await Booking.findOneAndUpdate(
+      { _id: req.params.id, tenantId: TENANT_ID },
+      { $set: update },
+      { new: true }
+    );
 
     // Zimmerwechsel? roomId hat sich geändert + alter Code vorhanden
     const oldRoomId = oldBooking.roomId?.toString();
@@ -348,7 +356,7 @@ router.patch('/:id', async (req, res) => {
       }
     }
 
-    const updated = await Booking.findById(booking._id);
+    const updated = await Booking.findOne({ _id: booking._id, tenantId: TENANT_ID });
     res.json({ success: true, data: updated });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
@@ -359,8 +367,8 @@ router.patch('/:id', async (req, res) => {
 router.patch('/:id/status', async (req, res) => {
   try {
     const { status } = req.body;
-    const booking = await Booking.findByIdAndUpdate(
-      req.params.id,
+    const booking = await Booking.findOneAndUpdate(
+      { _id: req.params.id, tenantId: TENANT_ID },
       { status },
       { new: true, runValidators: true }
     );
@@ -389,7 +397,7 @@ router.patch('/:id/status', async (req, res) => {
     }
 
     // Booking nochmal laden damit doorAccess aktuell ist
-    const updated = await Booking.findById(booking._id);
+    const updated = await Booking.findOne({ _id: booking._id, tenantId: TENANT_ID });
     res.json({ success: true, data: updated });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
@@ -399,7 +407,7 @@ router.patch('/:id/status', async (req, res) => {
 // POST /:id/send-portal — Portal-Link / Türcode-Email manuell senden
 router.post('/:id/send-portal', async (req, res) => {
   try {
-    const booking = await Booking.findById(req.params.id);
+    const booking = await Booking.findOne({ _id: req.params.id, tenantId: TENANT_ID });
     if (!booking) return res.status(404).json({ success: false, error: 'Buchung nicht gefunden' });
     const { sendDoorCodeEmail } = require('../services/doorCodeEmailService');
     await sendDoorCodeEmail(booking._id);

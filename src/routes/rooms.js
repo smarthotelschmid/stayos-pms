@@ -2,17 +2,18 @@ const express = require('express');
 const router = express.Router();
 const Room = require('../models/Room');
 
+const TENANT_ID = '507f1f77bcf86cd799439011';
+
 // ── GET /api/rooms ─────────────────────────────────────
 // Alle Zimmer eines Hotels abrufen
 // Später wird tenantId aus dem Login-Token gelesen
-// Jetzt noch als Query-Parameter für den Test
 router.get('/', async (req, res) => {
   try {
-    const rooms = await Room.find();
-    res.json({ 
-      success: true, 
+    const rooms = await Room.find({ tenantId: TENANT_ID });
+    res.json({
+      success: true,
       count: rooms.length,
-      data: rooms 
+      data: rooms
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -44,6 +45,7 @@ router.get('/available', async (req, res) => {
     const Booking = require('../models/Booking');
     // Alle belegten Zimmer im Zeitraum finden
     const busyBookings = await Booking.find({
+      tenantId: TENANT_ID,
       status: { $nin: ['cancelled', 'no-show'] },
       checkIn: { $lt: new Date(checkOut) },
       checkOut: { $gt: new Date(checkIn) }
@@ -51,6 +53,7 @@ router.get('/available', async (req, res) => {
     const busyRoomIds = busyBookings.map(b => b.roomId.toString());
     // Alle Zimmer außer den belegten
     const rooms = await Room.find({
+      tenantId: TENANT_ID,
       _id: { $nin: busyRoomIds }
     });
     res.json({ success: true, count: rooms.length, data: rooms });
@@ -63,7 +66,7 @@ router.get('/available', async (req, res) => {
 // Ein einzelnes Zimmer abrufen
 router.get('/:id', async (req, res) => {
   try {
-    const room = await Room.findById(req.params.id);
+    const room = await Room.findOne({ _id: req.params.id, tenantId: TENANT_ID });
     if (!room) {
       return res.status(404).json({ success: false, error: 'Zimmer nicht gefunden' });
     }
@@ -77,7 +80,7 @@ router.get('/:id', async (req, res) => {
 // Zimmer aktualisieren
 router.put('/:id', async (req, res) => {
   try {
-    const room = await Room.findByIdAndUpdate(req.params.id, req.body, { 
+    const room = await Room.findOneAndUpdate({ _id: req.params.id, tenantId: TENANT_ID }, req.body, {
       new: true,        // gibt das aktualisierte Dokument zurück
       runValidators: true // prüft ob die neuen Daten dem Schema entsprechen
     });
@@ -95,8 +98,8 @@ router.put('/:id', async (req, res) => {
 router.patch('/:id/housekeeping', async (req, res) => {
   try {
     const { housekeepingStatus, housekeepingNote } = req.body;
-    const room = await Room.findByIdAndUpdate(
-      req.params.id,
+    const room = await Room.findOneAndUpdate(
+      { _id: req.params.id, tenantId: TENANT_ID },
       { housekeepingStatus, housekeepingNote },
       { new: true }
     );

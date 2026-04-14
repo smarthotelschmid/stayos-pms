@@ -69,7 +69,7 @@ router.get('/:token', async (req, res) => {
 
     // Property laden (Vorrang vor Settings)
     const property = booking.propertyId
-      ? await Property.findById(booking.propertyId).lean()
+      ? await Property.findOne({ _id: booking.propertyId, tenantId: TENANT_ID }).lean()
       : null;
 
     // Nächte berechnen
@@ -238,7 +238,7 @@ router.patch('/:token/checkin-form', async (req, res) => {
       'checkInForm.documentNumber': f.documentNumber,
     }});
 
-    const updated = await Booking.findById(booking._id).lean();
+    const updated = await Booking.findOne({ _id: booking._id, tenantId: TENANT_ID }).lean();
     res.json({ success: true, doorCode: updated.doorAccess?.stayosCode || updated.doorAccess?.code || null });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

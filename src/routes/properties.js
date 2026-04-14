@@ -59,7 +59,7 @@ router.delete('/:id', async (req, res) => {
   try {
     const property = await Property.findOne({ _id: req.params.id, tenantId: TENANT_ID });
     if (!property) return res.status(404).json({ success: false, error: 'Betrieb nicht gefunden' });
-    await Room.updateMany({ propertyId: property._id }, { $unset: { propertyId: 1 } });
+    await Room.updateMany({ tenantId: TENANT_ID, propertyId: property._id }, { $unset: { propertyId: 1 } });
     await property.deleteOne();
     res.json({ success: true });
   } catch (err) {

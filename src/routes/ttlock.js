@@ -318,7 +318,7 @@ router.post('/test-doorcode-email', async (req, res) => {
     if (!bookingId) return res.json({ success: false, error: 'bookingId erforderlich' });
 
     // Direkt Email senden mit Override
-    const booking = await Booking.findById(bookingId);
+    const booking = await Booking.findOne({ _id: bookingId, tenantId: TENANT_ID });
     if (!booking) return res.json({ success: false, error: 'Buchung nicht gefunden' });
 
     const Guest = require('../models/Guest');
@@ -326,7 +326,7 @@ router.post('/test-doorcode-email', async (req, res) => {
     const { sendEmail } = require('../services/emailService');
     const { formatAddress } = require('../utils/formatAddress');
 
-    const guest = booking.guestId ? await Guest.findById(booking.guestId).lean() : null;
+    const guest = booking.guestId ? await Guest.findOne({ _id: booking.guestId, tenantId: TENANT_ID }).lean() : null;
     const to = overrideEmail || booking.contactEmail || guest?.email;
     if (!to) return res.json({ success: false, error: 'Keine Email — bitte overrideEmail angeben' });
 

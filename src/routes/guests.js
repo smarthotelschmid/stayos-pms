@@ -3,6 +3,8 @@ const router = express.Router();
 const Guest = require('../models/Guest');
 const { ObjectId } = require('mongodb');
 
+const TENANT_ID = '507f1f77bcf86cd799439011';
+
 // ── GET /api/guests/search?q= ────────────────────────
 // MUST be before /:id to avoid "search" matching as id
 router.get('/search', async (req, res) => {
@@ -55,11 +57,12 @@ router.get('/', async (req, res) => {
     if (req.query.ids) {
       const idList = req.query.ids.split(',').map(id => id.trim()).filter(Boolean);
       const objectIds = idList.map(id => { try { return new ObjectId(id); } catch { return id; } });
-      const guests = await Guest.find({ _id: { $in: objectIds } });
+      const guests = await Guest.find({ tenantId: TENANT_ID, _id: { $in: objectIds } });
       return res.json({ success: true, count: guests.length, data: guests });
     }
 
     const guests = await Guest.aggregate([
+      { $match: { tenantId: TENANT_ID } },
       {
         $addFields: {
           bookingCount: { $size: { $ifNull: ['$bookings', []] } },
@@ -104,7 +107,7 @@ router.post('/', async (req, res) => {
 // ── GET /api/guests/:id ────────────────────────────────
 router.get('/:id', async (req, res) => {
   try {
-    const guest = await Guest.findById(req.params.id);
+    const guest = await Guest.findOne({ _id: req.params.id, tenantId: TENANT_ID });
     if (!guest) return res.status(404).json({ success: false, error: 'Gast nicht gefunden' });
     res.json({ success: true, data: guest });
   } catch (err) {
@@ -115,10 +118,11 @@ router.get('/:id', async (req, res) => {
 // ── PUT /api/guests/:id ────────────────────────────────
 router.put('/:id', async (req, res) => {
   try {
-    const guest = await Guest.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true
-    });
+    const guest = await Guest.findOneAndUpdate(
+      { _id: req.params.id, tenantId: TENANT_ID },
+      req.body,
+      { new: true, runValidators: true }
+    );
     if (!guest) return res.status(404).json({ success: false, error: 'Gast nicht gefunden' });
     res.json({ success: true, data: guest });
   } catch (err) {
@@ -128,7 +132,11 @@ router.put('/:id', async (req, res) => {
 
 router.patch('/:id', async (req, res) => {
   try {
-    const guest = await Guest.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true, runValidators: true });
+    const guest = await Guest.findOneAndUpdate(
+      { _id: req.params.id, tenantId: TENANT_ID },
+      { $set: req.body },
+      { new: true, runValidators: true }
+    );
     if (!guest) return res.status(404).json({ success: false, error: 'Gast nicht gefunden' });
     res.json({ success: true, data: guest });
   } catch (err) {
@@ -139,9 +147,9 @@ router.patch('/:id', async (req, res) => {
 // ── DELETE /api/guests/:id ────────────────────────────
 router.delete('/:id', async (req, res) => {
   try {
-    const check = await Guest.findById(req.params.id, 'isTestGuest');
+    const check = await Guest.findOne({ _id: req.params.id, tenantId: TENANT_ID }, 'isTestGuest');
     if (check?.isTestGuest) return res.status(403).json({ success: false, error: 'Testgast kann nicht gelöscht werden' });
-    const guest = await Guest.findByIdAndDelete(req.params.id);
+    const guest = await Guest.findOneAndDelete({ _id: req.params.id, tenantId: TENANT_ID });
     if (!guest) return res.status(404).json({ success: false, error: 'Gast nicht gefunden' });
     res.json({ success: true, message: 'Gast gelöscht' });
   } catch (err) {
