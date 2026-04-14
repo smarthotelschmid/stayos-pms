@@ -1,7 +1,9 @@
 const express = require('express');
+const crypto = require('crypto');
 const router = express.Router();
 const beds24 = require('../services/beds24Service');
 const { syncBookings } = require('../services/syncService');
+const ProcessedWebhookId = require('../models/ProcessedWebhookId');
 
 // POST /api/beds24/auth — Beds24 Authentifizierung mit Invite Code
 router.post('/beds24/auth', async (req, res) => {
@@ -67,7 +69,22 @@ router.get('/beds24/sync', async (req, res) => {
 });
 
 // POST /api/webhooks/beds24 — Webhook Empfang
-router.post('/webhooks/beds24', (req, res) => {
+router.post('/webhooks/beds24', async (req, res) => {
+  const webhookId =
+    req.body?.webhookId ||
+    req.headers['x-webhook-id'] ||
+    crypto.createHash('sha256').update(JSON.stringify(req.body || {})).digest('hex');
+
+  try {
+    await ProcessedWebhookId.create({ webhookId, source: 'beds24' });
+  } catch (e) {
+    if (e.code === 11000) {
+      console.log(`[QUELLE: Webhook] Duplikat ignoriert: ${webhookId}`);
+      return res.status(200).json({ status: 'ok', duplicate: true });
+    }
+    console.log('[QUELLE: Webhook] Idempotenz-Fehler:', e.message);
+  }
+
   console.log('[QUELLE: Webhook] Empfangen:', JSON.stringify(req.body));
   syncBookings('webhook').catch(e => console.log('[QUELLE: Webhook] Sync Fehler:', e.message));
   res.status(200).json({ status: 'ok' });
