@@ -147,9 +147,9 @@ router.get('/', async (req, res) => {
     const skip = (page - 1) * limit;
 
     const bookings = await Booking.find(filter)
-      .populate('guestId', 'firstName lastName email phone')
-      .populate('roomId', 'number name type pricePerNight floor maxGuests amenities')
-      .populate('companyId', 'name aliases')
+      .populate({ path: 'guestId', match: { tenantId: TENANT_ID }, select: 'firstName lastName email phone' })
+      .populate({ path: 'roomId', match: { tenantId: TENANT_ID }, select: 'number name type pricePerNight floor maxGuests amenities' })
+      .populate({ path: 'companyId', match: { tenantId: TENANT_ID }, select: 'name aliases' })
       .sort({ checkIn: -1 })
       .skip(skip)
       .limit(limit);
@@ -285,7 +285,7 @@ router.get('/search', async (req, res) => {
     const bookings = await Booking.find({
       tenantId: TENANT_ID,
       $or: orConditions
-    }).sort({ checkIn: -1 }).limit(10).populate('guestId', 'firstName lastName');
+    }).sort({ checkIn: -1 }).limit(10).populate({ path: 'guestId', match: { tenantId: TENANT_ID }, select: 'firstName lastName' });
     res.json({ success: true, count: bookings.length, data: bookings });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -297,8 +297,8 @@ router.get('/:id', async (req, res) => {
   try {
     const booking = await Booking.findOne({ _id: req.params.id, tenantId: TENANT_ID })
       .select('-checkInToken -checkInTokenExpiry')
-      .populate('guestId', 'firstName lastName email phone')
-      .populate('roomId', 'number name type pricePerNight floor maxGuests amenities');
+      .populate({ path: 'guestId', match: { tenantId: TENANT_ID }, select: 'firstName lastName email phone' })
+      .populate({ path: 'roomId', match: { tenantId: TENANT_ID }, select: 'number name type pricePerNight floor maxGuests amenities' });
     if (!booking) return res.status(404).json({ success: false, error: 'Buchung nicht gefunden' });
     res.json({ success: true, data: booking });
   } catch (err) {
