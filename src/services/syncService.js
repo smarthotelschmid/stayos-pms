@@ -96,12 +96,12 @@ async function syncBookings(source = 'cron') {
         const isFake = guestData.emailIsFake;
 
         const matchQuery = isCompanyWithGuest
-          ? { beds24GuestId: guestData.beds24GuestId }
+          ? { tenantId: TENANT_ID, beds24GuestId: guestData.beds24GuestId }
           : email && !isFake
-            ? { $or: [{ beds24GuestId: guestData.beds24GuestId }, { email, tenantId: TENANT_ID }] }
-            : { $or: [
+            ? { tenantId: TENANT_ID, $or: [{ beds24GuestId: guestData.beds24GuestId }, { email }] }
+            : { tenantId: TENANT_ID, $or: [
                 { beds24GuestId: guestData.beds24GuestId },
-                ...(guestData.firstName && guestData.lastName ? [{ firstName: guestData.firstName, lastName: guestData.lastName, tenantId: TENANT_ID }] : [])
+                ...(guestData.firstName && guestData.lastName ? [{ firstName: guestData.firstName, lastName: guestData.lastName }] : [])
               ] };
 
         const guestResult = await Guest.findOneAndUpdate(
@@ -114,15 +114,15 @@ async function syncBookings(source = 'cron') {
 
         // Link company to guest + directBookingPotential
         if (companyId && guestId) {
-          const companyDoc = await Company.findById(companyId, 'type').lean();
+          const companyDoc = await Company.findOne({ _id: companyId, tenantId: TENANT_ID }, 'type').lean();
           const hasContact = (guestData.email && !guestData.emailIsFake) || !!guestData.phone;
           const dbp = companyDoc?.type === 'travel_agency' && hasContact;
-          await Guest.updateOne({ _id: guestId }, { $set: { companyId, ...(dbp ? { directBookingPotential: true } : {}) } });
+          await Guest.updateOne({ _id: guestId, tenantId: TENANT_ID }, { $set: { companyId, ...(dbp ? { directBookingPotential: true } : {}) } });
         }
       }
 
       // Booking upsert — soft-deleted und manuell überschriebene Buchungen nicht anfassen
-      const existing = await Booking.findOne({ beds24BookingId: b.id });
+      const existing = await Booking.findOne({ tenantId: TENANT_ID, beds24BookingId: b.id });
       if (existing?.status === 'deleted') continue;
       if (existing?.manualOverride === true) continue;
 
@@ -137,7 +137,7 @@ async function syncBookings(source = 'cron') {
       const { bookingNumber, ...updateData } = bookingData;
 
       const result = await Booking.findOneAndUpdate(
-        { beds24BookingId: b.id },
+        { tenantId: TENANT_ID, beds24BookingId: b.id },
         { $set: updateData, $setOnInsert: { bookingNumber, guestPortalToken: crypto.randomBytes(32).toString('hex'), 'checkInForm.completed': new Date(bookingData.checkIn) < FLOW_START } },
         { upsert: true, new: true, includeResultMetadata: true }
       );
