@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Settings = require('../models/Settings');
 const { getToken, ttlockPost, TTLOCK_API, CLIENT_ID, CLIENT_SECRET, TENANT_ID } = require('../services/ttlockHelper');
-const { generateDoorCodes } = require('../services/ttlockService');
+const { syncBookings } = require('../services/syncService');
 
 // ── POST /api/ttlock/auth ──────────────────────────────
 // Login bei TTLock mit username/password
@@ -203,12 +203,13 @@ router.post('/locks/:lockId/code', async (req, res) => {
   }
 });
 
-// ── GET /api/ttlock/status ─────────────────────────────
-// ── POST /api/ttlock/cron/run ───��────────────────────��──
+// ── POST /api/ttlock/cron/run ──────────────────────────
+// Triggert einen manuellen Sync — Codes werden dabei inline
+// für alle confirmed Buchungen ohne stayosCode erzeugt.
 router.post('/cron/run', async (req, res) => {
   try {
-    const result = await generateDoorCodes();
-    res.json({ success: true, ...result });
+    const summary = await syncBookings('manual');
+    res.json({ success: true, ...summary });
   } catch (err) {
     res.json({ success: false, error: err.message });
   }
@@ -317,7 +318,7 @@ router.post('/test-doorcode-email', async (req, res) => {
     if (!bookingId) return res.json({ success: false, error: 'bookingId erforderlich' });
 
     // Direkt Email senden mit Override
-    const booking = await Booking.findById(bookingId);
+    const booking = await Booking.findOne({ _id: bookingId, tenantId: TENANT_ID });
     if (!booking) return res.json({ success: false, error: 'Buchung nicht gefunden' });
 
     const Guest = require('../models/Guest');
@@ -325,7 +326,7 @@ router.post('/test-doorcode-email', async (req, res) => {
     const { sendEmail } = require('../services/emailService');
     const { formatAddress } = require('../utils/formatAddress');
 
-    const guest = booking.guestId ? await Guest.findById(booking.guestId).lean() : null;
+    const guest = booking.guestId ? await Guest.findOne({ _id: booking.guestId, tenantId: TENANT_ID }).lean() : null;
     const to = overrideEmail || booking.contactEmail || guest?.email;
     if (!to) return res.json({ success: false, error: 'Keine Email — bitte overrideEmail angeben' });
 

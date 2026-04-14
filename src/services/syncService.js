@@ -10,6 +10,7 @@ const { transformBeds24Booking, transformBeds24Guest, transformBeds24Company, is
 const { getToken, ttlockPost, CLIENT_ID } = require('./ttlockHelper');
 const { timeToUnix } = require('./ttlockService');
 const { sendDoorCodeEmail } = require('./doorCodeEmailService');
+const { sendConfirmationEmail, sendCancellationEmail } = require('./bookingEmailService');
 const ENTRANCE_LOCK_ID = 3321320;
 
 const SYNC_INTERVAL = 1 * 60 * 1000; // 1 Minute — Webhook zusätzlich, Polling ist primär
@@ -242,7 +243,8 @@ async function syncBookings(source = 'cron') {
               }});
               console.log(`[Beds24 Sync] Code generiert: ${freshBooking.roomName} → ${pin} (${freshBooking.guestName})`);
 
-              // Check-in heute? Email sofort
+              // Code generiert → Türcode-Email nur wenn Check-in heute (same-day).
+              // Für künftige Buchungen übernimmt der sendTime-Cron in doorCodeEmailService.
               const todayVienna = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Vienna' });
               if (ciStr2 === todayVienna) {
                 sendDoorCodeEmail(freshBooking._id).catch(e => console.log(`[Beds24 Sync] Email Fehler: ${e.message}`));
@@ -262,10 +264,17 @@ async function syncBookings(source = 'cron') {
         );
       }
 
-      if (result.lastErrorObject?.updatedExisting) {
-        updated++;
-      } else {
+      const wasCreated = !result.lastErrorObject?.updatedExisting;
+      if (wasCreated) {
         created++;
+        // Neue Buchung mit Status confirmed → Bestätigungs-Email (fire-and-forget, Guard intern)
+        if (result.value?.status === 'confirmed') {
+          sendConfirmationEmail(result.value._id).catch(e =>
+            console.log(`[Beds24 Sync] Confirmation Email Fehler: ${e.message}`)
+          );
+        }
+      } else {
+        updated++;
       }
     }
 
@@ -301,15 +310,18 @@ async function syncBookings(source = 'cron') {
     // Vergangene (check-out bereits vorbei) ignorieren — die sind einfach abgereist
     const todayStr = now.toLocaleDateString('en-CA', { timeZone: 'Europe/Vienna' });
     const todayDate = new Date(todayStr + 'T00:00:00Z');
+    const toCancelFilter = {
+      beds24BookingId: { $nin: beds24Ids },
+      tenantId: TENANT_ID,
+      source: 'beds24',
+      status: { $in: ['confirmed'] },
+      manualOverride: { $ne: true },
+      checkIn: { $gte: todayDate }
+    };
+    // IDs vorher holen, damit wir nach dem updateMany pro Buchung die Storno-Email feuern können
+    const toCancelIds = await Booking.find(toCancelFilter, '_id').lean();
     const orphanedActive = await Booking.updateMany(
-      {
-        beds24BookingId: { $nin: beds24Ids },
-        tenantId: TENANT_ID,
-        source: 'beds24',
-        status: { $in: ['confirmed'] },
-        manualOverride: { $ne: true },
-        checkIn: { $gte: todayDate }
-      },
+      toCancelFilter,
       {
         $set: {
           status: 'cancelled',
@@ -320,6 +332,11 @@ async function syncBookings(source = 'cron') {
     );
     const cancelledCount = orphanedActive.modifiedCount || 0;
     if (cancelledCount > 0) console.log(`[Beds24 Sync] ${cancelledCount} aktive Buchungen → cancelled (in Beds24 nicht mehr vorhanden)`);
+    for (const { _id } of toCancelIds) {
+      sendCancellationEmail(_id).catch(e =>
+        console.log(`[Beds24 Sync] Cancellation Email Fehler: ${e.message}`)
+      );
+    }
 
     const removed = removedFuture + cancelledCount;
 

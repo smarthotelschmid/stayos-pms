@@ -166,6 +166,8 @@ const bookingSchema = new mongoose.Schema({
     confirmationSent: { type: Boolean, default: false },
     // Wurde der Türcode gesendet?
     doorCodeSent:     { type: Boolean, default: false },
+    // Wurde die Storno-Bestätigung gesendet?
+    cancellationSent: { type: Boolean, default: false },
     // Wurde die Rechnung gesendet?
     invoiceSent:      { type: Boolean, default: false },
     // Wurde die Bewertungsanfrage gesendet?

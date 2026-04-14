@@ -239,5 +239,6 @@ module.exports = {
   mapStatus,
   mapMealPlan,
   isEmailFake,
+  isBookingcomFakeEmail: isEmailFake,
   decodeHtml
 };
