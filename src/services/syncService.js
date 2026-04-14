@@ -206,7 +206,7 @@ async function syncBookings(source = 'cron') {
       }
 
       // Code generieren wenn Buchung confirmed + kein STAYOS-Code + roomLockId vorhanden
-      const freshBooking = await Booking.findById(result.value?._id).lean();
+      const freshBooking = await Booking.findOne({ _id: result.value?._id, tenantId: TENANT_ID }).lean();
       if (freshBooking && freshBooking.status === 'confirmed' && !freshBooking.doorAccess?.stayosCode && freshBooking.doorAccess?.roomLockId) {
         try {
           const settings2 = await Settings.findOne({ tenantId: TENANT_ID }).lean();
