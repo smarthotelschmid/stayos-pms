@@ -4,6 +4,11 @@ const cors = require('cors');
 const cron = require('node-cron');
 require('dotenv').config();
 
+// ─── TENANT PLUGIN — muss VOR allen Routes/Models registriert werden ────────
+const tenantPlugin = require('./plugins/tenantPlugin');
+mongoose.plugin(tenantPlugin);
+// ────────────────────────────────────────────────────────────────────────────
+
 const app = express();
 
 app.use(cors());

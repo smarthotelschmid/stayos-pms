@@ -173,6 +173,10 @@ async function buildVars(booking, guest, settings) {
 async function sendDoorCodeEmail(bookingId) {
   const booking = await Booking.findById(bookingId);
   if (!booking || !booking.doorAccess?.stayosCode) return;
+  if (booking.communication?.doorCodeSent) {
+    console.log(`[DoorCodeEmail] Übersprungen (bereits gesendet): ${booking.bookingNumber}`);
+    return;
+  }
 
   const guest = booking.guestId ? await Guest.findById(booking.guestId).lean() : null;
 

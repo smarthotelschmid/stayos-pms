@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const Settings = require('../models/Settings');
 const Booking = require('../models/Booking');
+const IdempotencyKey = require('../models/IdempotencyKey');
 const { getToken, ttlockPost, CLIENT_ID, TENANT_ID } = require('./ttlockHelper');
 const { sendDoorCodeEmail } = require('./doorCodeEmailService');
 
@@ -138,6 +139,17 @@ async function generateDoorCodes() {
       const endDate   = timeToUnix(checkOut, checkOutTime);
       const guestName = booking.guestName || booking.bookingNumber || 'Gast';
 
+      const idemKey = `ttlock-${booking._id}-${lockId}-${checkIn}`;
+      try {
+        await IdempotencyKey.create({ key: idemKey, scope: 'ttlock' });
+      } catch (e) {
+        if (e.code === 11000) {
+          console.log(`[TTLock Cron] Übersprungen (idempotent): ${booking.bookingNumber} ${idemKey}`);
+          continue;
+        }
+        throw e;
+      }
+
       try {
         const pwdName = `${guestName} ${booking.bookingNumber || ''}`.trim();
         const guestId = (booking.guestId?._id || booking.guestId)?.toString();
@@ -165,6 +177,7 @@ async function generateDoorCodes() {
         }
         if (!roomResult.keyboardPwdId) {
           console.log(`[TTLock Cron] Fehler Zimmer ${booking.roomName}: ${roomResult.errmsg || JSON.stringify(roomResult)}`);
+          await IdempotencyKey.deleteOne({ key: idemKey }).catch(() => {});
           continue;
         }
 
@@ -201,6 +214,7 @@ async function generateDoorCodes() {
 
       } catch (e) {
         console.log(`[TTLock Cron] Fehler für ${booking.roomName}: ${e.message}`);
+        await IdempotencyKey.deleteOne({ key: idemKey }).catch(() => {});
       }
     }
 
