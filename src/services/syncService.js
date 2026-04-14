@@ -331,7 +331,7 @@ async function syncBookings(source = 'cron') {
     console.log(`[QUELLE: ${source}] ${summary.synced} Buchungen (${created} neu, ${updated} aktualisiert, ${removed} soft-deleted), ${guestsCreated} neue Gäste`);
     return summary;
   } catch (err) {
-    console.error('[Beds24 Sync] Fehler:', err.message);
+    console.error('[Beds24 Sync] Fehler:', err.message, '\n', err.stack);
     throw err;
   }
 }

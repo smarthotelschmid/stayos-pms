@@ -47,7 +47,7 @@ router.get('/', async (req, res) => {
   try {
     // Testgast-Lookup
     if (req.query.isTestGuest === 'true') {
-      const guest = await Guest.findOne({ isTestGuest: true });
+      const guest = await Guest.findOne({ tenantId: req.query.tenantId || '507f1f77bcf86cd799439011', isTestGuest: true });
       return res.json({ success: true, data: guest ? [guest] : [] });
     }
 
