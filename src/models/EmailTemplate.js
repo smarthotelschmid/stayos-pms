@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const emailTemplateSchema = new mongoose.Schema({
   tenantId: { type: String, required: true },
-  type: { type: String, enum: ['doorcode', 'confirmation', 'cancellation', 'review', 'whatsapp'], required: true },
+  type: { type: String, enum: ['doorcode', 'confirmation', 'cancellation', 'review', 'whatsapp', 'portal'], required: true },
 
   subject: {
     de: { type: String, default: '' },
@@ -19,6 +19,13 @@ const emailTemplateSchema = new mongoose.Schema({
   contentText: {
     de: { type: String, default: '' },
     en: { type: String, default: '' },
+  },
+
+  // Strukturierte Daten für Template-Typen, die keinen reinen Text/HTML-Content
+  // haben — insbesondere type='portal' mit { welcomeText, checkInHint, houseRules }
+  data: {
+    de: { type: mongoose.Schema.Types.Mixed },
+    en: { type: mongoose.Schema.Types.Mixed },
   },
 
   // Versand-Timing — pro Template-Typ, nicht pro Sprache

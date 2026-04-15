@@ -173,7 +173,7 @@ router.get('/:type', async (req, res) => {
       success: true,
       data: template || {
         type: req.params.type,
-        subject: {}, contentJson: {}, contentHtml: {}, contentText: {},
+        subject: {}, contentJson: {}, contentHtml: {}, contentText: {}, data: {},
         generateTime: '00:00',
         sendTime: '06:00',
         daysBefore: 1,
@@ -187,7 +187,7 @@ router.get('/:type', async (req, res) => {
 // POST /api/email-templates/:type
 router.post('/:type', async (req, res) => {
   try {
-    const { lang, subject, contentJson, contentHtml, contentText, generateTime, sendTime, daysBefore } = req.body;
+    const { lang, subject, contentJson, contentHtml, contentText, data, generateTime, sendTime, daysBefore } = req.body;
     const l = lang || 'de';
     const update = {};
 
@@ -196,6 +196,8 @@ router.post('/:type', async (req, res) => {
     if (contentJson !== undefined) update[`contentJson.${l}`] = contentJson;
     if (contentHtml !== undefined) update[`contentHtml.${l}`] = contentHtml;
     if (contentText !== undefined) update[`contentText.${l}`] = contentText;
+    // Strukturierte Daten (v.a. type='portal' mit welcomeText/checkInHint/houseRules)
+    if (data !== undefined)        update[`data.${l}`]        = data;
 
     // Timing-Felder — sprachunabhängig, nur setzen wenn explizit übergeben
     if (generateTime !== undefined) update.generateTime = generateTime;
