@@ -68,6 +68,8 @@ async function buildVars(booking, guest, settings, property) {
     primaryColor: property?.ci?.primaryColor || '',
     logoUrl: property?.ci?.logoUrl || property?.logoUrl || '',
     guestPortalUrl: buildGuestPortalUrl(booking.guestPortalToken, settings),
+    // Alias — Legacy-Templates nutzen {{guestPortalLink}} (doorcode-Pfad)
+    guestPortalLink: buildGuestPortalUrl(booking.guestPortalToken, settings),
   };
 }
 

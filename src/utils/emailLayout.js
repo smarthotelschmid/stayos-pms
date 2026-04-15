@@ -38,16 +38,18 @@ function wrapHtml(bodyHtml, v = {}) {
     ? `<p style="font-size:13px;color:#8890a5;text-align:center;line-height:1.6;margin:0 0 12px">${footerLines}</p>`
     : '';
 
-  // WhatsApp-Button: nur wenn Telefonnummer vorhanden
+  // WhatsApp-Button: nur wenn Telefonnummer vorhanden.
+  // Oberer Abstand statt eigenem hr — verhindert doppelten Trenner wenn der
+  // Body bereits mit einem hr endet (aus DB-Template).
   const waBlock = waDigits
-    ? `<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+    ? `<table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px"><tr><td align="center">
 <a href="https://wa.me/${waDigits}" style="display:inline-block;padding:10px 24px;border-radius:8px;background:#25D366;color:#fff;text-decoration:none;font-size:13px;font-weight:600">&#128172; WhatsApp</a>
 </td></tr></table>`
     : '';
 
-  // Divider nur wenn mindestens eine Footer-Komponente existiert
-  const footerHr = (footerP || waBlock)
-    ? '<hr style="border:none;height:1px;background:#e8eaf5;margin:24px 0 16px">'
+  // Footer-Paragraph mit Oberabstand (wo vorher der hr war)
+  const footerPSpaced = footerP
+    ? footerP.replace('margin:0 0 12px', 'margin:24px 0 12px')
     : '';
 
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -59,8 +61,7 @@ ${headerInner}
 </td></tr>
 <tr><td style="background:#ffffff;padding:40px 36px;border-radius:0 0 12px 12px">
 ${bodyHtml}
-${footerHr}
-${footerP}
+${footerPSpaced}
 ${waBlock}
 </td></tr></table>
 </td></tr></table></body></html>`;
