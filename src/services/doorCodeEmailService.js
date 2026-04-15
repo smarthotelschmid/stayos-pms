@@ -7,6 +7,7 @@ const { sendEmail } = require('./emailService');
 const { formatAddress } = require('../utils/formatAddress');
 const { titleCase } = require('../utils/formatName');
 const { wrapHtml } = require('../utils/emailLayout');
+const { buildGuestPortalUrl } = require('../utils/guestPortalUrl');
 
 const TENANT_ID = '507f1f77bcf86cd799439011';
 
@@ -116,7 +117,7 @@ async function buildVars(booking, guest, settings) {
     tagline: '',
     emailFooter: '',
     emailSignature: '',
-    guestPortalLink: booking.guestPortalToken ? `https://guest.stayos.at/${booking.guestPortalToken}` : '',
+    guestPortalLink: buildGuestPortalUrl(booking.guestPortalToken, settings),
   };
 }
 
