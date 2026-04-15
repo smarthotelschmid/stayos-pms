@@ -154,13 +154,15 @@ async function sendDoorCodeEmail(bookingId, { overrideEmail } = {}) {
   const vars = await buildVars(booking, guest, settings);
 
   // CI-Variablen aus Property überschreiben
-  const property = booking.propertyId ? await Property.findOne({ _id: booking.propertyId, tenantId: TENANT_ID }, 'ci name').lean() : null;
-  if (property?.ci) {
-    vars.primaryColor = property.ci.primaryColor || vars.primaryColor;
-    vars.logoUrl = property.ci.logoUrl || vars.logoUrl;
-    vars.tagline = property.ci.tagline || vars.tagline;
-    vars.emailFooter = property.ci.emailFooter || vars.emailFooter;
-    vars.emailSignature = property.ci.emailSignature || vars.emailSignature;
+  const property = booking.propertyId ? await Property.findOne({ _id: booking.propertyId, tenantId: TENANT_ID }, 'ci name logoUrl').lean() : null;
+  if (property) {
+    vars.logoUrl = property.ci?.logoUrl || property.logoUrl || vars.logoUrl;
+    if (property.ci) {
+      vars.primaryColor = property.ci.primaryColor || vars.primaryColor;
+      vars.tagline = property.ci.tagline || vars.tagline;
+      vars.emailFooter = property.ci.emailFooter || vars.emailFooter;
+      vars.emailSignature = property.ci.emailSignature || vars.emailSignature;
+    }
   }
 
   const subject = replaceVars(template?.subject?.[lang] || template?.subject?.de || 'Ihr Türcode — {{hotelName}}', vars);
