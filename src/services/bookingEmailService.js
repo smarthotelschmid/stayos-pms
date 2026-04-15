@@ -8,6 +8,7 @@ const { sendEmail } = require('./emailService');
 const { formatAddress } = require('../utils/formatAddress');
 const { titleCase } = require('../utils/formatName');
 const { wrapHtml } = require('../utils/emailLayout');
+const { buildGuestPortalUrl } = require('../utils/guestPortalUrl');
 
 const TENANT_ID = '507f1f77bcf86cd799439011';
 
@@ -61,7 +62,7 @@ async function buildVars(booking, guest, settings, property) {
     effectiveCheckOutTime: booking.lateCheckOut || settings?.checkOutTime || '11:00',
     primaryColor: property?.ci?.primaryColor || '#3d4fbc',
     logoUrl: property?.ci?.logoUrl || property?.logoUrl || '',
-    guestPortalUrl: booking.guestPortalToken ? `https://guest.stayos.at/${booking.guestPortalToken}` : '',
+    guestPortalUrl: buildGuestPortalUrl(booking.guestPortalToken, settings),
   };
 }
 
