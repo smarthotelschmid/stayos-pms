@@ -415,6 +415,42 @@ router.patch('/:id/status', async (req, res) => {
   }
 });
 
+// ── DELETE /api/bookings/:id — Soft Delete ────────────
+// Body: { reason, force }
+// Setzt status='deleted', deletedAt, deletedBy, deleteReason.
+// Raeumt TTLock-Codes weg.
+// Guard: checked-in Buchungen nur mit force=true.
+router.delete('/:id', async (req, res) => {
+  try {
+    const { reason, force, deletedBy } = req.body || {};
+    const booking = await Booking.findOne({ _id: req.params.id, tenantId: TENANT_ID });
+    if (!booking) return res.status(404).json({ success: false, error: 'Buchung nicht gefunden' });
+    if (booking.status === 'deleted') return res.json({ success: true, data: booking, alreadyDeleted: true });
+    if (booking.status === 'checked-in' && !force) {
+      return res.status(409).json({ success: false, error: 'Gast ist aktuell eingecheckt. force:true erforderlich.' });
+    }
+
+    // TTLock-Code raeumen bevor wir den Status setzen
+    try { await deleteCode(booking); }
+    catch (e) { console.log(`[Delete] TTLock cleanup Fehler: ${e.message}`); }
+
+    const updated = await Booking.findOneAndUpdate(
+      { _id: req.params.id, tenantId: TENANT_ID },
+      { $set: {
+        status: 'deleted',
+        deletedAt: new Date(),
+        deletedBy: deletedBy || 'user',
+        deleteReason: reason || '',
+      }},
+      { new: true }
+    );
+
+    res.json({ success: true, data: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // POST /:id/send-portal — Portal-Link / Türcode-Email manuell senden
 router.post('/:id/send-portal', async (req, res) => {
   try {
