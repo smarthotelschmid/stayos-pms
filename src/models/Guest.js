@@ -77,6 +77,9 @@ const guestSchema = new mongoose.Schema({
   // ── EXTERNE REFERENZ ────────────────────────────────
   source:         { type: String },
   beds24GuestId:  { type: String, index: true },
+  // Duplikat-robuster Name-Key (lowercase + Diakritika gestrippt).
+  // Wird beim Sync befuellt, index fuer schnelles Fallback-Matching.
+  normNameKey:    { type: String, index: true },
 
   // ── DSGVO / MARKETING ───────────────────────────────
   gdprConsent:      { type: Boolean, default: false },

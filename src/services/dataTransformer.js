@@ -113,6 +113,27 @@ function isEmailFake(email) {
   return FAKE_EMAIL_PATTERNS.some(p => email.toLowerCase().includes(p));
 }
 
+// Normalisiert First+Last zu einem duplikat-robusten Key:
+// - trim, lowercase
+// - Unicode NFD Dekomposition + Diakritika strippen (Müller → muller, José → jose)
+// - ß → ss
+// - Mehrfach-Whitespace zu single space, am Rand getrimmt
+// - Form: "firstname lastname" (leer wenn beide leer)
+function normalizeNameKey(firstName, lastName) {
+  const norm = (s) => (s || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')   // Diakritika weg
+    .replace(/ß/g, 'ss')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')      // nur a-z, 0-9, space, dash
+    .replace(/\s+/g, ' ')
+    .trim();
+  const f = norm(firstName);
+  const l = norm(lastName);
+  if (!f && !l) return '';
+  return `${f} ${l}`.trim();
+}
+
 function transformBeds24Booking(b, roomMapping, unitMapping) {
   const mapped = roomMapping[String(b.roomId)];
   const exactRoom = unitMapping ? unitMapping[`${b.roomId}-${b.unitId}`] : null;
@@ -207,7 +228,8 @@ function transformBeds24Guest(b) {
     arrivalTime: b.arrivalTime || null,
     mealPlan: mapMealPlan(b.rateDescription, b.apiMessage),
     source: 'beds24',
-    beds24GuestId: guestId
+    beds24GuestId: guestId,
+    normNameKey: normalizeNameKey(firstName, lastName),
   };
 }
 
@@ -240,5 +262,6 @@ module.exports = {
   mapMealPlan,
   isEmailFake,
   isBookingcomFakeEmail: isEmailFake,
+  normalizeNameKey,
   decodeHtml
 };
