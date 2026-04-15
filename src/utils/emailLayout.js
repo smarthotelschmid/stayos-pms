@@ -31,7 +31,7 @@ ${headerInner}
 <tr><td style="background:#ffffff;padding:40px 36px;border-radius:0 0 12px 12px">
 ${bodyHtml}
 <hr style="border:none;height:1px;background:#e8eaf5;margin:24px 0 16px">
-<p style="font-size:13px;color:#8890a5;text-align:center;line-height:1.6;margin:0 0 12px">${hotelName}<br><a href="https://maps.google.com/?q=${encodeURIComponent(address)}" style="color:#8890a5;text-decoration:none">${address.replace(/\n/g, '<br>')}</a></p>
+<p style="font-size:13px;color:#8890a5;text-align:center;line-height:1.6;margin:0 0 12px">${hotelName}<br>${v.googleMapsUrl ? `<a href="${v.googleMapsUrl}" style="color:#8890a5;text-decoration:none">${address.replace(/\n/g, '<br>')}</a>` : address.replace(/\n/g, '<br>')}</p>
 ${waDigits ? `<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
 <a href="https://wa.me/${waDigits}" style="display:inline-block;padding:10px 24px;border-radius:8px;background:#25D366;color:#fff;text-decoration:none;font-size:13px;font-weight:600">&#128172; WhatsApp</a>
 </td></tr></table>` : ''}
