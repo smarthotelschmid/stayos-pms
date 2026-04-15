@@ -72,6 +72,22 @@ function buildFallbackBody(v) {
 </tr></table>`;
 }
 
+// Plain-Text-Fallback — bewusst OHNE Code (kein doorCode/doorCodePin).
+// Gast wird ans Gastportal verwiesen, wo der Code sicher abrufbar ist.
+function buildFallbackText(v) {
+  return [
+    `Guten Tag ${v.guestFirstName || 'Gast'},`,
+    ``,
+    `alles ist fuer Ihren Aufenthalt vorbereitet.`,
+    `Alle Details finden Sie in Ihrem Gaesteportal:`,
+    ``,
+    v.guestPortalLink || '',
+    ``,
+    `Herzliche Gruesse`,
+    v.hotelName || '',
+  ].join('\n');
+}
+
 // Variablen im Template ersetzen
 function replaceVars(text, vars) {
   if (!text) return '';
@@ -184,7 +200,12 @@ async function sendDoorCodeEmail(bookingId, { overrideEmail } = {}) {
 
   const html = wrapHtml(body, vars);
 
-  await sendEmail({ tenantId: TENANT_ID, to, subject, html });
+  // Plain Text: DB-Template zuerst, sonst Fallback (ohne Code)
+  let text = template?.contentText?.[lang] || template?.contentText?.de || '';
+  if (!text) text = buildFallbackText(vars);
+  text = replaceVars(text, vars);
+
+  await sendEmail({ tenantId: TENANT_ID, to, subject, html, text });
 
   if (!isTestMode) {
     await Booking.updateOne({ _id: bookingId }, { $set: { 'communication.doorCodeSent': true } });
