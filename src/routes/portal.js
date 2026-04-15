@@ -124,7 +124,7 @@ router.get('/:token', async (req, res) => {
         checkOutTime: property?.checkOutTime || settings?.checkOutTime || '11:00',
         effectiveCheckInTime: booking.earlyCheckIn || property?.checkInTime || settings?.checkInTime || '15:00',
         effectiveCheckOutTime: booking.lateCheckOut || property?.checkOutTime || settings?.checkOutTime || '11:00',
-        ci: property?.ci || null,
+        ci: property ? { ...(property.ci || {}), logoUrl: property.ci?.logoUrl || property.logoUrl || '' } : null,
         checkInFormCompleted: booking.checkInForm?.completed === true || new Date(booking.checkIn) < new Date('2026-04-19T00:00:00+02:00'),
       },
     });
