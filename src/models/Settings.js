@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const settingsSchema = new mongoose.Schema({
   tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: true },
   hotelName: { type: String },
+  logoUrl: { type: String },
   slug: { type: String, unique: true, sparse: true },
   customDomain: { type: String },
   customDomainVerified: { type: Boolean, default: false },

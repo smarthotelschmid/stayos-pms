@@ -100,4 +100,16 @@ async function migratePortalTemplate() {
   console.log(`[Seed] Portal-Template migriert: welcomeText=${welcomeText.length} chars, ${houseRules.length} Hausregeln`);
 }
 
-module.exports = { createTestGuest, createTestBooking, migratePortalTemplate };
+// Einmalige Migration: Property.logoUrl → Settings.logoUrl, wenn Settings
+// noch keins hat. Idempotent.
+async function migrateSettingsLogo() {
+  const s = await Settings.findOne({ tenantId: TENANT_ID }).lean();
+  if (s?.logoUrl) return; // schon gesetzt
+  const p = await Property.findOne({ tenantId: TENANT_ID }).sort({ createdAt: 1 }).lean();
+  const logo = p?.ci?.logoUrl || p?.logoUrl;
+  if (!logo) return;
+  await Settings.updateOne({ tenantId: TENANT_ID }, { $set: { logoUrl: logo } });
+  console.log(`[Seed] Settings.logoUrl von Property migriert: ${logo}`);
+}
+
+module.exports = { createTestGuest, createTestBooking, migratePortalTemplate, migrateSettingsLogo };
