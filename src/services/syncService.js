@@ -17,7 +17,23 @@ const SYNC_INTERVAL = 1 * 60 * 1000; // 1 Minute — Webhook zusätzlich, Pollin
 const FLOW_START = new Date('2026-04-19T00:00:00+02:00'); // Check-in Flow ab diesem Datum
 const TENANT_ID = '507f1f77bcf86cd799439011';
 
+// ── Sync-Mutex + Fresh-Age-Filter für Orphan-Check ──
+// Verhindert Race Conditions:
+// 1. _isSyncing Lock: nur ein Sync-Run gleichzeitig (Webhook + Cron können
+//    sonst parallel laufen, wobei einer eine stale Beds24-Response hat und
+//    gerade erst angelegte Buchungen als Orphans wegdeletet).
+// 2. ORPHAN_SKIP_RECENT_MS: Buchungen, die innerhalb der letzten 2 Minuten
+//    upserted wurden, werden vom Orphan-Check AUSGENOMMEN. Defense-in-Depth
+//    falls der Lock mal umgangen wird.
+let _isSyncing = false;
+const ORPHAN_SKIP_RECENT_MS = 2 * 60 * 1000;
+
 async function syncBookings(source = 'cron') {
+  if (_isSyncing) {
+    console.log(`[Beds24 Sync] Skip (${source}) — anderer Sync läuft bereits`);
+    return { skipped: true, reason: 'locked' };
+  }
+  _isSyncing = true;
   try {
     const today = new Date();
     const future = new Date(today);
@@ -291,6 +307,8 @@ async function syncBookings(source = 'cron') {
     const beds24Ids = allBookings.map(b => b.id);
     const now = new Date();
     const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    // Fresh-Age: kürzlich upserted Buchungen nicht als Orphan behandeln
+    const staleThreshold = new Date(now.getTime() - ORPHAN_SKIP_RECENT_MS);
 
     // Zukünftige Buchungen → deleted (wie bisher)
     const orphanedFuture = await Booking.updateMany(
@@ -300,7 +318,8 @@ async function syncBookings(source = 'cron') {
         source: 'beds24',
         status: { $nin: ['deleted', 'cancelled', 'checked-out', 'no-show'] },
         manualOverride: { $ne: true },
-        checkIn: { $gt: tomorrow }
+        checkIn: { $gt: tomorrow },
+        updatedAt: { $lt: staleThreshold }, // Fresh-Age-Filter
       },
       {
         $set: {
@@ -324,7 +343,8 @@ async function syncBookings(source = 'cron') {
       source: 'beds24',
       status: { $in: ['confirmed'] },
       manualOverride: { $ne: true },
-      checkIn: { $gte: todayDate }
+      checkIn: { $gte: todayDate },
+      updatedAt: { $lt: staleThreshold }, // Fresh-Age-Filter
     };
     // IDs vorher holen, damit wir nach dem updateMany pro Buchung die Storno-Email feuern können
     const toCancelIds = await Booking.find(toCancelFilter, '_id').lean();
@@ -358,6 +378,8 @@ async function syncBookings(source = 'cron') {
   } catch (err) {
     console.error('[Beds24 Sync] Fehler:', err.message, '\n', err.stack);
     throw err;
+  } finally {
+    _isSyncing = false;
   }
 }
 
