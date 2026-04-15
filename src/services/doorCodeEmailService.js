@@ -6,14 +6,17 @@ const Property = require('../models/Property');
 const { sendEmail } = require('./emailService');
 const { formatAddress } = require('../utils/formatAddress');
 const { titleCase } = require('../utils/formatName');
+const { wrapHtml } = require('../utils/emailLayout');
 
 const TENANT_ID = '507f1f77bcf86cd799439011';
 
-function renderBlocksToHtml(blocks, vars) {
+// ─── Body-Renderer ────────────────────────────────────────────────────────────
+// Kein eigenes HTML-Shell mehr — Header/Footer kommen via wrapHtml().
+
+// Rendert contentJson Blocks (Visual Block Editor) zu reinem Body-HTML.
+function renderBlocksBody(blocks, vars) {
   const rv = (s) => Object.entries(vars).reduce((t, [k, v]) => t.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v || ''), s || '');
   const accent = vars.primaryColor || '#3d4fbc';
-  const logo = vars.logoUrl || 'https://smarthotel-schmid.at/wp-content/uploads/2022/12/Logo-Smarthotel-SW-2-1.png';
-
   let body = '';
   for (const b of blocks) {
     if (b.type === 'text') {
@@ -35,53 +38,17 @@ function renderBlocksToHtml(blocks, vars) {
       body += `<img src="${rv(b.url)}" alt="" style="width:100%;border-radius:8px;margin:16px 0">`;
     }
   }
-
-  // Wrap mit Header + Footer
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f5f6ff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6ff;padding:24px 0"><tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%">
-<tr><td style="background:${accent};padding:28px 36px;text-align:center;border-radius:12px 12px 0 0">
-<img src="${logo}" alt="${vars.hotelName || ''}" height="55" style="height:55px;filter:brightness(0) invert(1);-webkit-filter:brightness(0) invert(1)">
-</td></tr>
-<tr><td style="background:#ffffff;padding:40px 36px;border-radius:0 0 12px 12px">
-${body}
-<hr style="border:none;height:1px;background:#e8eaf5;margin:24px 0 16px">
-<p style="font-size:13px;color:#8890a5;text-align:center;line-height:1.6;margin:0 0 12px">${vars.hotelName || ''}<br><a href="${vars.googleMapsUrl || `https://maps.google.com/?q=${encodeURIComponent(vars.address || '')}`}" style="color:#8890a5;text-decoration:none">${vars.address || ''}</a></p>
-<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
-<a href="https://wa.me/${(vars.hotelPhone || '').replace(/[^0-9]/g, '')}" style="display:inline-block;padding:10px 24px;border-radius:8px;background:#25D366;color:#fff;text-decoration:none;font-size:13px;font-weight:600">&#128172; WhatsApp</a>
-</td></tr></table>
-</td></tr></table>
-</td></tr></table></body></html>`;
+  return body;
 }
 
-function buildFallbackHtml(v) {
+// Fallback-Body für Türcode-Mail (Greeting + CTA + Info-Box).
+function buildFallbackBody(v) {
   const accent = v.primaryColor || '#3d4fbc';
-  const logo = v.logoUrl || 'https://smarthotel-schmid.at/wp-content/uploads/2022/12/Logo-Smarthotel-SW-2-1.png';
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f5f6ff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6ff;padding:24px 0">
-<tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%">
-
-<!-- HEADER -->
-<tr><td style="background:${accent};padding:28px 36px;text-align:center;border-radius:12px 12px 0 0">
-<img src="${logo}" alt="${v.hotelName || ''}" height="55" style="height:55px;filter:brightness(0) invert(1);-webkit-filter:brightness(0) invert(1)">
-</td></tr>
-
-<!-- BODY -->
-<tr><td style="background:#ffffff;padding:40px 36px;border-radius:0 0 12px 12px">
-
-<!-- Greeting -->
-<p style="font-size:22px;font-weight:700;color:#1a1f3c;margin:0 0 8px">Guten Tag ${v.guestFirstName || 'Gast'},</p>
+  return `<p style="font-size:22px;font-weight:700;color:#1a1f3c;margin:0 0 8px">Guten Tag ${v.guestFirstName || 'Gast'},</p>
 <p style="font-size:15px;color:#4a5067;line-height:1.65;margin:0 0 28px">alles ist f&uuml;r Ihren Aufenthalt vorbereitet. Ihren pers&ouml;nlichen Zugangscode und alle wichtigen Informationen finden Sie in Ihrem G&auml;steportal.</p>
-
-<!-- CTA Button -->
 <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:0 0 32px">
 <a href="${v.guestPortalLink || '#'}" style="display:inline-block;background:${accent};color:#ffffff;padding:16px 40px;border-radius:10px;text-decoration:none;font-size:16px;font-weight:600;letter-spacing:0.3px">Zum G&auml;steportal &rarr;</a>
 </td></tr></table>
-
-<!-- Info Box -->
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6ff;border-radius:10px;margin-bottom:28px"><tr>
 <td width="33%" style="padding:20px 12px;text-align:center;vertical-align:top">
 <div style="font-size:24px;margin-bottom:6px">&#128197;</div>
@@ -101,24 +68,7 @@ function buildFallbackHtml(v) {
 <div style="font-size:14px;font-weight:600;color:#1a1f3c">${v.roomName || ''}</div>
 <div style="font-size:12px;color:#8890a5">${v.nights || ''} N&auml;chte</div>
 </td>
-</tr></table>
-
-<!-- Divider -->
-<hr style="border:none;height:1px;background:#e8eaf5;margin:0 0 24px">
-
-<!-- Footer -->
-<p style="font-size:13px;color:#8890a5;text-align:center;line-height:1.6;margin:0 0 12px">
-${v.hotelName || 'smarthotel'}<br>
-<a href="${v.googleMapsUrl || `https://maps.google.com/?q=${encodeURIComponent(v.address || '')}`}" style="color:#8890a5;text-decoration:none">${v.address || ''}</a>
-</p>
-<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
-<a href="https://wa.me/${(v.hotelPhone || '').replace(/[^0-9]/g, '')}" style="display:inline-block;padding:10px 24px;border-radius:8px;background:#25D366;color:#ffffff;text-decoration:none;font-size:13px;font-weight:600">&#128172; WhatsApp</a>
-</td></tr></table>
-
-</td></tr>
-</table>
-</td></tr></table>
-</body></html>`;
+</tr></table>`;
 }
 
 // Variablen im Template ersetzen
@@ -153,7 +103,6 @@ async function buildVars(booking, guest, settings) {
     hotelName: settings?.hotelName || 'smarthotel schmid',
     hotelAddress: formatAddress(settings) || settings?.location || '',
     address: formatAddress(settings) || settings?.location || '',
-    googleMapsUrl: settings?.googleMapsUrl || '',
     hotelPhone: settings?.hotelPhone || '',
     hotelPhoneWhatsapp: (settings?.hotelPhone || '').replace(/\D/g, ''),
     hotelEmail: settings?.hotelEmail || settings?.smtp?.user || '',
@@ -166,25 +115,30 @@ async function buildVars(booking, guest, settings) {
     tagline: '',
     emailFooter: '',
     emailSignature: '',
-    guestPortalLink: booking.guestPortalToken ? `https://${settings?.customDomainVerified && settings?.customDomain ? settings.customDomain : settings?.slug ? settings.slug + '.stayos.at' : 'stayos.at'}/portal/${booking.guestPortalToken}` : '',
+    guestPortalLink: booking.guestPortalToken ? `https://guest.stayos.at/${booking.guestPortalToken}` : '',
   };
 }
 
-// Einzelne Türcode-Email senden
-async function sendDoorCodeEmail(bookingId) {
+// Einzelne Türcode-Email senden.
+// Opts:
+//   overrideEmail — Empfänger überschreiben (Test-Mode). Bei gesetzter
+//                   overrideEmail wird der doorCodeSent-Guard und das
+//                   Setzen des Flags übersprungen.
+async function sendDoorCodeEmail(bookingId, { overrideEmail } = {}) {
   const booking = await Booking.findOne({ _id: bookingId, tenantId: TENANT_ID });
   if (!booking || !booking.doorAccess?.stayosCode) return;
-  if (booking.communication?.doorCodeSent) {
+
+  const isTestMode = !!overrideEmail;
+  if (!isTestMode && booking.communication?.doorCodeSent) {
     console.log(`[DoorCodeEmail] Übersprungen (bereits gesendet): ${booking.bookingNumber}`);
     return;
   }
 
   const guest = booking.guestId ? await Guest.findOne({ _id: booking.guestId, tenantId: TENANT_ID }).lean() : null;
 
-  // Email-Empfänger: contactEmail → Gast-Email (auch Relay) → Firmen-Email
-  let to = booking.contactEmail || guest?.email;
+  // Empfänger: overrideEmail > contactEmail > Gast-Email > Firmen-Email
+  let to = overrideEmail || booking.contactEmail || guest?.email;
   if (!to) {
-    // Fallback auf Firmen-Email wenn companyId vorhanden
     if (booking.companyId) {
       const Company = require('../models/Company');
       const company = await Company.findOne({ _id: booking.companyId, tenantId: TENANT_ID }, 'contactEmail').lean();
@@ -209,26 +163,29 @@ async function sendDoorCodeEmail(bookingId) {
     vars.emailSignature = property.ci.emailSignature || vars.emailSignature;
   }
 
-  let subject = replaceVars(template?.subject?.[lang] || template?.subject?.de || 'Ihr Türcode — {{hotelName}}', vars);
-  let html = template?.contentHtml?.[lang] || template?.contentHtml?.de || '';
-  // Fallback: contentJson Blocks zu HTML rendern wenn contentHtml leer
-  if (!html) {
+  const subject = replaceVars(template?.subject?.[lang] || template?.subject?.de || 'Ihr Türcode — {{hotelName}}', vars);
+
+  // Body aus Template oder Fallback
+  let body = template?.contentHtml?.[lang] || template?.contentHtml?.de || '';
+  if (!body) {
     const blocks = template?.contentJson?.[lang] || template?.contentJson?.de || [];
     if (blocks.length > 0) {
-      html = renderBlocksToHtml(blocks, vars);
+      body = renderBlocksBody(blocks, vars);
     }
   }
-  // Letzter Fallback: professionelles HTML Template
-  if (!html) {
-    html = buildFallbackHtml(vars);
+  if (!body) {
+    body = buildFallbackBody(vars);
   }
-  html = replaceVars(html, vars);
+  body = replaceVars(body, vars);
 
-  if (!html) return;
+  const html = wrapHtml(body, vars);
 
   await sendEmail({ tenantId: TENANT_ID, to, subject, html });
-  await Booking.updateOne({ _id: bookingId }, { $set: { 'communication.doorCodeSent': true } });
-  console.log(`[DoorCodeEmail] Gesendet an ${to} (${booking.bookingNumber})`);
+
+  if (!isTestMode) {
+    await Booking.updateOne({ _id: bookingId }, { $set: { 'communication.doorCodeSent': true } });
+  }
+  console.log(`[DoorCodeEmail] Gesendet an ${to} (${booking.bookingNumber})${isTestMode ? ' [TEST]' : ''}`);
 }
 
 // Batch: alle heutigen Buchungen mit Code aber ohne gesendete Email
