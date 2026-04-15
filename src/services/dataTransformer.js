@@ -140,7 +140,9 @@ function transformBeds24Booking(b, roomMapping, unitMapping) {
   return {
     beds24BookingId: b.id,
     beds24RoomId: b.roomId,
-    beds24UnitId: b.unitId || null,
+    // Beds24 liefert 0 fuer "Pool-Buchung ohne konkrete Unit" — nicht null.
+    // `b.unitId ?? null` erhaelt die 0, damit Auto-Assign den Fall erkennt.
+    beds24UnitId: b.unitId ?? null,
     beds24PropertyId: b.propertyId,
     otaBookingId: b.apiReference || (b.apiMessage?.match(/Room R.*?Id:\s*(\d+)/)?.[1]) || null,
     referer: b.referer || null,
