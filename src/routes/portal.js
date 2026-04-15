@@ -64,13 +64,24 @@ router.get('/:token', async (req, res) => {
 
     const settings = await Settings.findOne(
       { tenantId: TENANT_ID },
-      'hotelName hotelStreet hotelStreetNo hotelZip hotelCity hotelCountry hotelPhone hotelEmail hotelWebsite whatsapp receptionHours houseRules checkInTime checkOutTime googleMapsUrl'
+      'hotelName hotelStreet hotelStreetNo hotelZip hotelCity hotelCountry hotelPhone hotelEmail hotelWebsite whatsapp receptionHours houseRules checkInTime checkOutTime googleMapsUrl portalConfig'
     ).lean();
 
     // Property laden (Vorrang vor Settings)
     const property = booking.propertyId
       ? await Property.findOne({ _id: booking.propertyId, tenantId: TENANT_ID }).lean()
       : null;
+
+    // Portal-Template laden (strukturierte Inhalte: welcomeText, checkInHint, houseRules)
+    const EmailTemplate = require('../models/EmailTemplate');
+    const Guest = require('../models/Guest');
+    const guest = booking.guestId ? await Guest.findOne({ _id: booking.guestId, tenantId: TENANT_ID }, 'preferredLanguage').lean() : null;
+    const lang = (guest?.preferredLanguage === 'en') ? 'en' : 'de';
+    const portalTpl = await EmailTemplate.findOne({ tenantId: TENANT_ID, type: 'portal' }).lean();
+    const portalData = portalTpl?.data?.[lang] || portalTpl?.data?.de || {};
+    const templateWelcome = portalData.welcomeText || '';
+    const templateCheckInHint = portalData.checkInHint || '';
+    const templateRules = Array.isArray(portalData.houseRules) ? portalData.houseRules : null;
 
     // Nächte berechnen
     const msPerDay = 86400000;
@@ -103,7 +114,12 @@ router.get('/:token', async (req, res) => {
         hotelPhone: property?.hotelPhone || settings?.hotelPhone || '',
         hotelEmail: settings?.hotelEmail || '',
         receptionHours: settings?.receptionHours || '',
-        houseRules: property?.houseRules?.length ? property.houseRules : (settings?.houseRules || []),
+        // Portal-Template hat Vorrang, dann Property, dann Settings
+        houseRules: (templateRules && templateRules.length)
+          ? templateRules
+          : (property?.houseRules?.length ? property.houseRules : (settings?.houseRules || [])),
+        welcomeText: templateWelcome || settings?.portalConfig?.welcomeText || '',
+        checkInHint: templateCheckInHint || settings?.portalConfig?.checkInHint || '',
         checkInTime: property?.checkInTime || settings?.checkInTime || '15:00',
         checkOutTime: property?.checkOutTime || settings?.checkOutTime || '11:00',
         effectiveCheckInTime: booking.earlyCheckIn || property?.checkInTime || settings?.checkInTime || '15:00',

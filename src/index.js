@@ -32,7 +32,7 @@ const viesRouter           = require('./routes/vies');
 const { startSync }                                    = require('./services/syncService');
 const { startTTLockCron, getDoorcodeTemplate, timeToCron } = require('./services/ttlockService');
 const { sendDoorCodeEmailsForToday }                   = require('./services/doorCodeEmailService');
-const { createTestGuest, createTestBooking }           = require('./services/seedService');
+const { createTestGuest, createTestBooking, migratePortalTemplate } = require('./services/seedService');
 
 app.use('/api/rooms',           roomsRouter);
 app.use('/api/guests',          guestsRouter);
@@ -88,6 +88,7 @@ mongoose.connect(process.env.MONGODB_URI)
     await startTTLockCron();
     await startEmailCron();
     createTestGuest().then(() => createTestBooking()).catch(() => {});
+    migratePortalTemplate().catch(e => console.log('[Seed] Portal-Migration Fehler:', e.message));
 
     app.listen(process.env.PORT, () => {
       console.log(`✅ Server läuft auf Port ${process.env.PORT}`);

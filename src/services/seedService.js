@@ -3,6 +3,8 @@ const Guest = require('../models/Guest');
 const Booking = require('../models/Booking');
 const Room = require('../models/Room');
 const Property = require('../models/Property');
+const Settings = require('../models/Settings');
+const EmailTemplate = require('../models/EmailTemplate');
 
 const TENANT_ID = '507f1f77bcf86cd799439011';
 
@@ -74,4 +76,28 @@ async function createTestBooking() {
   return b;
 }
 
-module.exports = { createTestGuest, createTestBooking };
+// Einmalige Migration: settings.portalConfig + house rules → EmailTemplate(portal).data.de
+// Idempotent: laeuft nur, solange das Portal-Template noch keine data.de hat.
+async function migratePortalTemplate() {
+  const existing = await EmailTemplate.findOne({ tenantId: TENANT_ID, type: 'portal' }).lean();
+  if (existing?.data?.de?.welcomeText !== undefined || existing?.data?.de?.houseRules !== undefined) {
+    return; // schon migriert
+  }
+
+  const settings = await Settings.findOne({ tenantId: TENANT_ID }).lean();
+  const property = await Property.findOne({ tenantId: TENANT_ID }).sort({ createdAt: 1 }).lean();
+
+  const welcomeText = settings?.portalConfig?.welcomeText || '';
+  const checkInHint = settings?.portalConfig?.checkInHint || '';
+  const houseRules = (property?.houseRules?.length ? property.houseRules : settings?.houseRules || [])
+    .map(r => ({ icon: r.icon || '', text: r.text || '' }));
+
+  await EmailTemplate.findOneAndUpdate(
+    { tenantId: TENANT_ID, type: 'portal' },
+    { $set: { 'data.de': { welcomeText, checkInHint, houseRules } } },
+    { upsert: true, new: true }
+  );
+  console.log(`[Seed] Portal-Template migriert: welcomeText=${welcomeText.length} chars, ${houseRules.length} Hausregeln`);
+}
+
+module.exports = { createTestGuest, createTestBooking, migratePortalTemplate };
