@@ -259,6 +259,14 @@ router.post('/', async (req, res) => {
       console.log(`[TTLock] Code-Generierung Fehler: ${e.message}`);
     }
 
+    // Confirmation-Email fire-and-forget (Guard: communication.confirmationSent intern)
+    if (booking.status === 'confirmed') {
+      const { sendConfirmationEmail } = require('../services/bookingEmailService');
+      sendConfirmationEmail(booking._id).catch(e =>
+        console.log(`[Email] Confirmation Versand Fehler: ${e.message}`)
+      );
+    }
+
     res.status(201).json({ success: true, data: booking });
   } catch (err) {
     res.status(400).json({ success: false, error: err.message });
