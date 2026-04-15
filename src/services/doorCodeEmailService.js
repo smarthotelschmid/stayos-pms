@@ -142,7 +142,8 @@ async function buildVars(booking, guest, settings) {
 //   overrideEmail — Empfänger überschreiben (Test-Mode). Bei gesetzter
 //                   overrideEmail wird der doorCodeSent-Guard und das
 //                   Setzen des Flags übersprungen.
-async function sendDoorCodeEmail(bookingId, { overrideEmail } = {}) {
+//   forceFormat   — 'html' | 'text' — Auto-Wahl in sendEmail überschreiben.
+async function sendDoorCodeEmail(bookingId, { overrideEmail, forceFormat } = {}) {
   const booking = await Booking.findOne({ _id: bookingId, tenantId: TENANT_ID });
   if (!booking || !booking.doorAccess?.stayosCode) return;
 
@@ -205,7 +206,7 @@ async function sendDoorCodeEmail(bookingId, { overrideEmail } = {}) {
   if (!text) text = buildFallbackText(vars);
   text = replaceVars(text, vars);
 
-  await sendEmail({ tenantId: TENANT_ID, to, subject, html, text });
+  await sendEmail({ tenantId: TENANT_ID, to, subject, html, text, forceFormat });
 
   if (!isTestMode) {
     await Booking.updateOne({ _id: bookingId }, { $set: { 'communication.doorCodeSent': true } });

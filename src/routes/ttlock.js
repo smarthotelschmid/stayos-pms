@@ -316,12 +316,12 @@ if (process.env.NODE_ENV !== 'production') {
 // Rendering mehr. Guard und doorCodeSent-Flag werden im Test-Mode übersprungen.
 router.post('/test-doorcode-email', async (req, res) => {
   try {
-    const { bookingId, overrideEmail } = req.body;
+    const { bookingId, overrideEmail, forceFormat } = req.body;
     if (!bookingId) return res.json({ success: false, error: 'bookingId erforderlich' });
     if (!overrideEmail) return res.json({ success: false, error: 'overrideEmail erforderlich' });
     const { sendDoorCodeEmail } = require('../services/doorCodeEmailService');
-    await sendDoorCodeEmail(bookingId, { overrideEmail });
-    res.json({ success: true, message: `Test-Email gesendet an ${overrideEmail}` });
+    await sendDoorCodeEmail(bookingId, { overrideEmail, forceFormat });
+    res.json({ success: true, message: `Test-Email (${forceFormat || 'auto'}) gesendet an ${overrideEmail}` });
   } catch (err) {
     res.json({ success: false, error: err.message });
   }
