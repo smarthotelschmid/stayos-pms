@@ -142,6 +142,8 @@ async function buildVars(booking, guest, settings, property) {
     emailFooter: property?.ci?.emailFooter || '',
     emailSignature: property?.ci?.emailSignature || '',
     guestPortalLink: buildGuestPortalUrl(booking.guestPortalToken, settings),
+    // Alias — bookingEmailService-Templates nutzen {{guestPortalUrl}}
+    guestPortalUrl: buildGuestPortalUrl(booking.guestPortalToken, settings),
   };
 }
 
