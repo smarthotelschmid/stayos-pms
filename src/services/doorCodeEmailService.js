@@ -72,20 +72,22 @@ function buildFallbackBody(v) {
 </tr></table>`;
 }
 
-// Plain-Text-Fallback — bewusst OHNE Code (kein doorCode/doorCodePin).
-// Gast wird ans Gastportal verwiesen, wo der Code sicher abrufbar ist.
-function buildFallbackText(v) {
-  return [
-    `Guten Tag ${v.guestFirstName || 'Gast'},`,
-    ``,
-    `alles ist fuer Ihren Aufenthalt vorbereitet.`,
-    `Alle Details finden Sie in Ihrem Gaesteportal:`,
-    ``,
-    v.guestPortalLink || '',
-    ``,
-    `Herzliche Gruesse`,
-    v.hotelName || '',
-  ].join('\n');
+// Plain-Text-Fallback — baut den Text ausschliesslich aus Template-Feldern:
+//   1. template.subject[lang]        (als Einleitungszeile)
+//   2. erster text-Block aus template.contentJson[lang] (der Begruessungstext
+//      aus dem Visual Editor)
+// Gibt '' zurueck wenn Template leer ist; emailService strippt dann notfalls
+// das HTML als Text-Alternative. Kein hardcoded String.
+function buildFallbackText(template, lang) {
+  const subject = template?.subject?.[lang] || template?.subject?.de || '';
+  const blocks  = template?.contentJson?.[lang] || template?.contentJson?.de || [];
+  const firstText = blocks.find(b => b?.type === 'text' && b?.content);
+  const greeting = firstText?.content || '';
+
+  const parts = [];
+  if (subject)  parts.push(subject);
+  if (greeting) parts.push(greeting);
+  return parts.join('\n\n');
 }
 
 // Variablen im Template ersetzen
@@ -196,9 +198,9 @@ async function sendDoorCodeEmail(bookingId, { overrideEmail, forceFormat } = {})
 
   const html = wrapHtml(body, vars);
 
-  // Plain Text: DB-Template zuerst, sonst Fallback (ohne Code)
+  // Plain Text: DB-Template zuerst, sonst aus subject + contentJson Block bauen
   let text = template?.contentText?.[lang] || template?.contentText?.de || '';
-  if (!text) text = buildFallbackText(vars);
+  if (!text) text = buildFallbackText(template, lang);
   text = replaceVars(text, vars);
 
   await sendEmail({ tenantId: TENANT_ID, to, subject, html, text, forceFormat });
