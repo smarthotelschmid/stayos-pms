@@ -32,7 +32,7 @@ const viesRouter           = require('./routes/vies');
 const { startSync }                                    = require('./services/syncService');
 const { startTTLockCron, getDoorcodeTemplate, timeToCron } = require('./services/ttlockService');
 const { sendDoorCodeEmailsForToday }                   = require('./services/doorCodeEmailService');
-const { createTestGuest }                              = require('./services/seedService');
+const { createTestGuest, createTestBooking }           = require('./services/seedService');
 
 app.use('/api/rooms',           roomsRouter);
 app.use('/api/guests',          guestsRouter);
@@ -87,7 +87,7 @@ mongoose.connect(process.env.MONGODB_URI)
     startSync();
     await startTTLockCron();
     await startEmailCron();
-    createTestGuest().catch(() => {});
+    createTestGuest().then(() => createTestBooking()).catch(() => {});
 
     app.listen(process.env.PORT, () => {
       console.log(`✅ Server läuft auf Port ${process.env.PORT}`);
