@@ -86,12 +86,12 @@ router.get('/hotel', async (req, res) => {
   try {
     const settings = await Settings.findOne({ tenantId: TENANT_ID });
     res.json({ success: true, data: {
-      name: settings?.hotelName || 'smarthotel schmid',
-      address: settings?.location || 'Sitzenberg, NÖ',
+      name: settings?.hotelName || '',
+      address: settings?.location || '',
       phone: settings?.hotelPhone || '',
-      email: settings?.smtp?.user || '',
-      checkInTime: settings?.checkInTime || '15:00',
-      checkOutTime: settings?.checkOutTime || '11:00',
+      email: settings?.hotelEmail || '',
+      checkInTime: settings?.checkInTime || '',
+      checkOutTime: settings?.checkOutTime || '',
     }});
   } catch (err) { res.json({ success: false, error: err.message }); }
 });

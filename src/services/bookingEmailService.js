@@ -37,6 +37,10 @@ async function resolveRecipient(booking, guest) {
 
 async function buildVars(booking, guest, settings, property) {
   const doorCode = booking.doorAccess?.stayosCode || booking.doorAccess?.code || '';
+  // Kontaktdaten: Property Vorrang, Settings Tenant-Default, sonst leer
+  const propAddress = property ? formatAddress(property) : '';
+  const setAddress  = formatAddress(settings);
+  const hotelAddress = propAddress || setAddress || '';
   return {
     guestName: titleCase(booking.guestName || `${guest?.firstName || ''} ${guest?.lastName || ''}`.trim()) || 'Gast',
     guestFirstName: titleCase(guest?.firstName || ''),
@@ -51,16 +55,17 @@ async function buildVars(booking, guest, settings, property) {
     doorCode: doorCode || 'wird separat zugestellt',
     totalPrice: booking.pricing?.total ? `€ ${booking.pricing.total}` : '',
     mealPlan: booking.mealPlan || '',
-    hotelName: settings?.hotelName || 'smarthotel schmid',
-    hotelAddress: formatAddress(settings) || settings?.location || '',
-    address: formatAddress(settings) || settings?.location || '',
-    hotelPhone: settings?.hotelPhone || '',
-    hotelEmail: settings?.hotelEmail || settings?.smtp?.user || 'booking@smarthotel-schmid.at',
-    hotelWebsite: settings?.hotelWebsite || '',
-    googleMapsUrl: settings?.googleMapsUrl || '',
-    effectiveCheckInTime: booking.earlyCheckIn || settings?.checkInTime || '15:00',
-    effectiveCheckOutTime: booking.lateCheckOut || settings?.checkOutTime || '11:00',
-    primaryColor: property?.ci?.primaryColor || '#3d4fbc',
+    hotelName: property?.name || settings?.hotelName || '',
+    hotelAddress,
+    address: hotelAddress,
+    hotelPhone: property?.hotelPhone || settings?.hotelPhone || '',
+    hotelEmail: property?.hotelEmail || settings?.hotelEmail || '',
+    hotelWebsite: property?.hotelWebsite || settings?.hotelWebsite || '',
+    receptionHours: property?.receptionHours || settings?.receptionHours || '',
+    googleMapsUrl: property?.googleMapsUrl || settings?.googleMapsUrl || '',
+    effectiveCheckInTime: booking.earlyCheckIn || property?.checkInTime || settings?.checkInTime || '',
+    effectiveCheckOutTime: booking.lateCheckOut || property?.checkOutTime || settings?.checkOutTime || '',
+    primaryColor: property?.ci?.primaryColor || '',
     logoUrl: property?.ci?.logoUrl || property?.logoUrl || '',
     guestPortalUrl: buildGuestPortalUrl(booking.guestPortalToken, settings),
   };
@@ -191,7 +196,7 @@ async function loadContext(bookingId) {
   if (!booking) return null;
   const guest = booking.guestId ? await Guest.findOne({ _id: booking.guestId, tenantId: TENANT_ID }).lean() : null;
   const settings = await Settings.findOne({ tenantId: TENANT_ID });
-  const property = booking.propertyId ? await Property.findOne({ _id: booking.propertyId, tenantId: TENANT_ID }, 'ci name logoUrl').lean() : null;
+  const property = booking.propertyId ? await Property.findOne({ _id: booking.propertyId, tenantId: TENANT_ID }).lean() : null;
   return { booking, guest, settings, property };
 }
 

@@ -100,7 +100,13 @@ function fmtDateDE(d) {
   return `${dt.getDate()}.${dt.getMonth() + 1}.${dt.getFullYear()}`;
 }
 
-async function buildVars(booking, guest, settings) {
+// Kontaktdaten: Property hat Vorrang, Settings als Tenant-weiter Default.
+// Fehlt ein Feld in beiden → leer.
+async function buildVars(booking, guest, settings, property) {
+  const propAddress = property ? formatAddress(property) : '';
+  const setAddress  = formatAddress(settings);
+  const hotelAddress = propAddress || setAddress || '';
+  const hotelPhone   = property?.hotelPhone || settings?.hotelPhone || '';
   return {
     guestName: titleCase(booking.guestName || `${guest?.firstName || ''} ${guest?.lastName || ''}`.trim()) || 'Gast',
     guestFirstName: titleCase(guest?.firstName || ''),
@@ -116,23 +122,23 @@ async function buildVars(booking, guest, settings) {
     bookingNumber: booking.bookingNumber || '',
     totalPrice: booking.totalPrice ? `€ ${booking.totalPrice}` : '',
     mealPlan: booking.mealPlan || '',
-    arrivalTime: settings?.checkInTime || '15:00',
-    hotelName: settings?.hotelName || 'smarthotel schmid',
-    hotelAddress: formatAddress(settings) || settings?.location || '',
-    address: formatAddress(settings) || settings?.location || '',
-    googleMapsUrl: settings?.googleMapsUrl || '',
-    hotelPhone: settings?.hotelPhone || '',
-    hotelPhoneWhatsapp: (settings?.hotelPhone || '').replace(/\D/g, ''),
-    hotelEmail: settings?.hotelEmail || settings?.smtp?.user || '',
-    hotelWebsite: settings?.hotelWebsite || '',
-    receptionHours: settings?.receptionHours || '08:00 – 22:00',
-    effectiveCheckInTime: booking.earlyCheckIn || settings?.checkInTime || '15:00',
-    effectiveCheckOutTime: booking.lateCheckOut || settings?.checkOutTime || '11:00',
-    primaryColor: '#b5a160', // wird unten von Property überschrieben
-    logoUrl: '',
-    tagline: '',
-    emailFooter: '',
-    emailSignature: '',
+    arrivalTime: property?.checkInTime || settings?.checkInTime || '',
+    hotelName: property?.name || settings?.hotelName || '',
+    hotelAddress,
+    address: hotelAddress,
+    googleMapsUrl: property?.googleMapsUrl || settings?.googleMapsUrl || '',
+    hotelPhone,
+    hotelPhoneWhatsapp: hotelPhone.replace(/\D/g, ''),
+    hotelEmail: property?.hotelEmail || settings?.hotelEmail || '',
+    hotelWebsite: property?.hotelWebsite || settings?.hotelWebsite || '',
+    receptionHours: property?.receptionHours || settings?.receptionHours || '',
+    effectiveCheckInTime: booking.earlyCheckIn || property?.checkInTime || settings?.checkInTime || '',
+    effectiveCheckOutTime: booking.lateCheckOut || property?.checkOutTime || settings?.checkOutTime || '',
+    primaryColor: property?.ci?.primaryColor || '',
+    logoUrl: property?.ci?.logoUrl || property?.logoUrl || '',
+    tagline: property?.ci?.tagline || '',
+    emailFooter: property?.ci?.emailFooter || '',
+    emailSignature: property?.ci?.emailSignature || '',
     guestPortalLink: buildGuestPortalUrl(booking.guestPortalToken, settings),
   };
 }
@@ -169,20 +175,9 @@ async function sendDoorCodeEmail(bookingId, { overrideEmail, forceFormat } = {})
   const settings = await Settings.findOne({ tenantId: TENANT_ID });
   const lang = guest?.preferredLanguage || 'de';
   const template = await EmailTemplate.findOne({ tenantId: TENANT_ID, type: 'doorcode' });
+  const property = booking.propertyId ? await Property.findOne({ _id: booking.propertyId, tenantId: TENANT_ID }).lean() : null;
 
-  const vars = await buildVars(booking, guest, settings);
-
-  // CI-Variablen aus Property überschreiben
-  const property = booking.propertyId ? await Property.findOne({ _id: booking.propertyId, tenantId: TENANT_ID }, 'ci name logoUrl').lean() : null;
-  if (property) {
-    vars.logoUrl = property.ci?.logoUrl || property.logoUrl || vars.logoUrl;
-    if (property.ci) {
-      vars.primaryColor = property.ci.primaryColor || vars.primaryColor;
-      vars.tagline = property.ci.tagline || vars.tagline;
-      vars.emailFooter = property.ci.emailFooter || vars.emailFooter;
-      vars.emailSignature = property.ci.emailSignature || vars.emailSignature;
-    }
-  }
+  const vars = await buildVars(booking, guest, settings, property);
 
   const subject = replaceVars(template?.subject?.[lang] || template?.subject?.de || 'Ihr Türcode — {{hotelName}}', vars);
 
