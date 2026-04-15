@@ -103,7 +103,7 @@ router.get('/:token', async (req, res) => {
         hotelPhone: property?.hotelPhone || settings?.hotelPhone || '',
         hotelEmail: settings?.hotelEmail || '',
         receptionHours: settings?.receptionHours || '',
-        houseRules: property ? (property.houseRules || []) : (settings?.houseRules || []),
+        houseRules: property?.houseRules?.length ? property.houseRules : (settings?.houseRules || []),
         checkInTime: property?.checkInTime || settings?.checkInTime || '15:00',
         checkOutTime: property?.checkOutTime || settings?.checkOutTime || '11:00',
         effectiveCheckInTime: booking.earlyCheckIn || property?.checkInTime || settings?.checkInTime || '15:00',
