@@ -172,14 +172,14 @@ async function buildVars(booking, guest, settings) {
 
 // Einzelne Türcode-Email senden
 async function sendDoorCodeEmail(bookingId) {
-  const booking = await Booking.findById(bookingId);
+  const booking = await Booking.findOne({ _id: bookingId, tenantId: TENANT_ID });
   if (!booking || !booking.doorAccess?.stayosCode) return;
   if (booking.communication?.doorCodeSent) {
     console.log(`[DoorCodeEmail] Übersprungen (bereits gesendet): ${booking.bookingNumber}`);
     return;
   }
 
-  const guest = booking.guestId ? await Guest.findById(booking.guestId).lean() : null;
+  const guest = booking.guestId ? await Guest.findOne({ _id: booking.guestId, tenantId: TENANT_ID }).lean() : null;
 
   // Email-Empfänger: contactEmail → Gast-Email (auch Relay) → Firmen-Email
   let to = booking.contactEmail || guest?.email;
@@ -187,7 +187,7 @@ async function sendDoorCodeEmail(bookingId) {
     // Fallback auf Firmen-Email wenn companyId vorhanden
     if (booking.companyId) {
       const Company = require('../models/Company');
-      const company = await Company.findById(booking.companyId, 'contactEmail').lean();
+      const company = await Company.findOne({ _id: booking.companyId, tenantId: TENANT_ID }, 'contactEmail').lean();
       to = company?.contactEmail;
     }
     if (!to) return;
@@ -200,7 +200,7 @@ async function sendDoorCodeEmail(bookingId) {
   const vars = await buildVars(booking, guest, settings);
 
   // CI-Variablen aus Property überschreiben
-  const property = booking.propertyId ? await Property.findById(booking.propertyId, 'ci name').lean() : null;
+  const property = booking.propertyId ? await Property.findOne({ _id: booking.propertyId, tenantId: TENANT_ID }, 'ci name').lean() : null;
   if (property?.ci) {
     vars.primaryColor = property.ci.primaryColor || vars.primaryColor;
     vars.logoUrl = property.ci.logoUrl || vars.logoUrl;
