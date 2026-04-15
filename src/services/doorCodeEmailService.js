@@ -103,6 +103,7 @@ async function buildVars(booking, guest, settings) {
     hotelName: settings?.hotelName || 'smarthotel schmid',
     hotelAddress: formatAddress(settings) || settings?.location || '',
     address: formatAddress(settings) || settings?.location || '',
+    googleMapsUrl: settings?.googleMapsUrl || '',
     hotelPhone: settings?.hotelPhone || '',
     hotelPhoneWhatsapp: (settings?.hotelPhone || '').replace(/\D/g, ''),
     hotelEmail: settings?.hotelEmail || settings?.smtp?.user || '',
