@@ -96,13 +96,21 @@ async function syncBookings(source = 'cron') {
         const email = guestData.email;
         const isFake = guestData.emailIsFake;
 
+        // Match-Kette:
+        //   1. beds24GuestId (primaer)
+        //   2. email (wenn nicht fake)
+        //   3. normNameKey (lowercase + Diakritika gestrippt — Mueller/Müller/muller gleiche Person)
         const matchQuery = isCompanyWithGuest
           ? { tenantId: TENANT_ID, beds24GuestId: guestData.beds24GuestId }
           : email && !isFake
-            ? { tenantId: TENANT_ID, $or: [{ beds24GuestId: guestData.beds24GuestId }, { email }] }
+            ? { tenantId: TENANT_ID, $or: [
+                { beds24GuestId: guestData.beds24GuestId },
+                { email },
+                ...(guestData.normNameKey ? [{ normNameKey: guestData.normNameKey }] : []),
+              ] }
             : { tenantId: TENANT_ID, $or: [
                 { beds24GuestId: guestData.beds24GuestId },
-                ...(guestData.firstName && guestData.lastName ? [{ firstName: guestData.firstName, lastName: guestData.lastName }] : [])
+                ...(guestData.normNameKey ? [{ normNameKey: guestData.normNameKey }] : []),
               ] };
 
         const guestResult = await Guest.findOneAndUpdate(

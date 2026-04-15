@@ -126,7 +126,7 @@ async function deleteCode(booking) {
 // Query-Parameter: from, to, status, limit, page
 router.get('/', async (req, res) => {
   try {
-    const { from, to, status, includeDeleted, limit: limitParam, page: pageParam } = req.query;
+    const { from, to, status, includeDeleted, guestId, limit: limitParam, page: pageParam } = req.query;
     const filter = { tenantId: TENANT_ID };
 
     // Datum-Filter: from → checkOut >= from, to → checkIn <= to
@@ -135,6 +135,9 @@ router.get('/', async (req, res) => {
 
     // Status-Filter: kommagetrennt, z.B. status=confirmed,checked-in
     if (status) filter.status = { $in: status.split(',') };
+
+    // Gast-Filter (alle Buchungen eines Gasts)
+    if (guestId) filter.guestId = guestId;
 
     // Gelöschte Buchungen standardmäßig ausblenden
     if (includeDeleted !== 'true' && !status) {

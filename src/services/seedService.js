@@ -100,6 +100,25 @@ async function migratePortalTemplate() {
   console.log(`[Seed] Portal-Template migriert: welcomeText=${welcomeText.length} chars, ${houseRules.length} Hausregeln`);
 }
 
+// Einmalige Migration: normNameKey fuer bestehende Gaeste berechnen,
+// wenn noch nicht gesetzt. Idempotent.
+async function migrateGuestNormNameKeys() {
+  const { normalizeNameKey } = require('./dataTransformer');
+  const guests = await Guest.find({
+    tenantId: TENANT_ID,
+    $or: [{ normNameKey: { $exists: false } }, { normNameKey: null }, { normNameKey: '' }],
+  }).select('_id firstName lastName').lean();
+  if (!guests.length) return;
+  let migrated = 0;
+  for (const g of guests) {
+    const key = normalizeNameKey(g.firstName, g.lastName);
+    if (!key) continue;
+    await Guest.updateOne({ _id: g._id, tenantId: TENANT_ID }, { $set: { normNameKey: key } });
+    migrated++;
+  }
+  console.log(`[Seed] normNameKey fuer ${migrated}/${guests.length} Gaeste migriert`);
+}
+
 // Einmalige Migration: Property.logoUrl → Settings.logoUrl, wenn Settings
 // noch keins hat. Idempotent.
 async function migrateSettingsLogo() {
@@ -112,4 +131,4 @@ async function migrateSettingsLogo() {
   console.log(`[Seed] Settings.logoUrl von Property migriert: ${logo}`);
 }
 
-module.exports = { createTestGuest, createTestBooking, migratePortalTemplate, migrateSettingsLogo };
+module.exports = { createTestGuest, createTestBooking, migratePortalTemplate, migrateSettingsLogo, migrateGuestNormNameKeys };
