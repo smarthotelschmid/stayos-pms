@@ -100,6 +100,29 @@ async function migratePortalTemplate() {
   console.log(`[Seed] Portal-Template migriert: welcomeText=${welcomeText.length} chars, ${houseRules.length} Hausregeln`);
 }
 
+// Einmalige Migration: Bestehende deleted-Buchungen ohne Metadaten
+// mit deletedAt=updatedAt, deletedBy='beds24-sync', deleteReason
+// nachziehen. Idempotent: laeuft nur fuer Dokumente ohne deletedAt.
+async function migrateDeletedBookingMeta() {
+  const missing = await Booking.find({
+    tenantId: TENANT_ID,
+    status: 'deleted',
+    $or: [{ deletedAt: { $exists: false } }, { deletedAt: null }],
+  }).select('_id updatedAt').lean();
+  if (!missing.length) return;
+  for (const b of missing) {
+    await Booking.updateOne(
+      { _id: b._id, tenantId: TENANT_ID },
+      { $set: {
+        deletedAt: b.updatedAt || new Date(),
+        deletedBy: 'beds24-sync',
+        deleteReason: 'In Beds24 nicht mehr vorhanden',
+      }}
+    );
+  }
+  console.log(`[Seed] deleted-Buchungen Meta nachgetragen: ${missing.length}`);
+}
+
 // Einmalige Migration: normNameKey fuer bestehende Gaeste berechnen,
 // wenn noch nicht gesetzt. Idempotent.
 async function migrateGuestNormNameKeys() {
@@ -131,4 +154,4 @@ async function migrateSettingsLogo() {
   console.log(`[Seed] Settings.logoUrl von Property migriert: ${logo}`);
 }
 
-module.exports = { createTestGuest, createTestBooking, migratePortalTemplate, migrateSettingsLogo, migrateGuestNormNameKeys };
+module.exports = { createTestGuest, createTestBooking, migratePortalTemplate, migrateSettingsLogo, migrateGuestNormNameKeys, migrateDeletedBookingMeta };

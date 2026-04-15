@@ -52,11 +52,17 @@ const bookingSchema = new mongoose.Schema({
   // Der aktuelle Zustand der Buchung
   // confirmed → checked-in → checked-out (normaler Ablauf)
   // cancelled oder no-show bei Problemen
-  status: { 
-    type: String, 
-    enum: ['confirmed', 'checked-in', 'checked-out', 'cancelled', 'no-show'],
+  status: {
+    type: String,
+    enum: ['confirmed', 'checked-in', 'checked-out', 'cancelled', 'no-show', 'deleted'],
     default: 'confirmed'
   },
+
+  // Soft-Delete Metadaten (nur befuellt wenn status === 'deleted')
+  deletedAt:    { type: Date },
+  deletedBy:    { type: String },  // 'user' | 'beds24-sync' | 'system' | '<userId>'
+  deleteReason: { type: String },
+  cancelledAt:  { type: Date },    // bei cancelled Status
 
   // ── GAST & ZIMMER ─────────────────────────────────────
   
