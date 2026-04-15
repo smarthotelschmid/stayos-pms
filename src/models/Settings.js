@@ -24,6 +24,9 @@ const settingsSchema = new mongoose.Schema({
   location: { type: String },
   checkInTime: { type: String, default: '15:00' },
   checkOutTime: { type: String, default: '11:00' },
+  // Bandbreiten fuer Early-Check-in und Late-Check-out (Policy)
+  earliestCheckInTime: { type: String },
+  latestCheckOutTime:  { type: String },
   geschaeftstagEndeUhr: { type: Number, default: 4 },
   hotelCountry: { type: String },
   hotelStreet: { type: String },

@@ -17,6 +17,10 @@ const propertySchema = new mongoose.Schema({
   // Betrieb
   checkInTime:   { type: String, default: '15:00' },
   checkOutTime:  { type: String, default: '11:00' },
+  // Bandbreiten — frueheste Early-Check-in-Zeit und spaeteste Late-Check-out-Zeit
+  // die der Hotelier anbietet. Nur als Policy/UI-Grenzen gedacht.
+  earliestCheckInTime: { type: String },
+  latestCheckOutTime:  { type: String },
   whatsapp:      { type: String },
   hotelPhone:    { type: String },
   hotelEmail:    { type: String },
