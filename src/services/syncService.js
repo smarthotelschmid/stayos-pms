@@ -312,53 +312,6 @@ async function syncBookings(source = 'cron') {
         }
       }
 
-      // ── Healing: Entrance-PIN nachziehen ─────────────────────────────────
-      // Inkonsistenter Zustand: roomKeyboardPwdId gesetzt aber
-      // entranceKeyboardPwdId null (erster TTLock-Call geklappt, zweiter
-      // beim initialen Code-Gen fehlgeschlagen). Nur fuer confirmed/checked-in
-      // Buchungen deren checkOut in der Zukunft liegt.
-      const healTarget = await Booking.findOne({ _id: result.value?._id, tenantId: TENANT_ID }).lean();
-      if (
-        healTarget &&
-        ['confirmed', 'checked-in'].includes(healTarget.status) &&
-        healTarget.doorAccess?.stayosCode &&
-        healTarget.doorAccess?.roomKeyboardPwdId &&
-        !healTarget.doorAccess?.entranceKeyboardPwdId &&
-        healTarget.checkOut && new Date(healTarget.checkOut) > new Date()
-      ) {
-        try {
-          const tokenHeal = await getToken();
-          const startMs = new Date(healTarget.doorAccess.validFrom).getTime();
-          const endMs   = new Date(healTarget.doorAccess.validTo).getTime();
-          const pwdParams = {
-            clientId: CLIENT_ID, accessToken: tokenHeal,
-            keyboardPwdType: 3,
-            keyboardPwd: healTarget.doorAccess.stayosCode,
-            addType: 2,
-            startDate: startMs.toString(),
-            endDate: endMs.toString(),
-            keyboardPwdName: `${healTarget.guestName || ''} ${healTarget.bookingNumber || ''}`.trim(),
-            date: Date.now(),
-            lockId: ENTRANCE_LOCK_ID,
-          };
-          const entranceRes = await ttlockPost('/v3/keyboardPwd/add', pwdParams);
-          if (entranceRes.keyboardPwdId) {
-            await Booking.updateOne(
-              { _id: healTarget._id, tenantId: TENANT_ID },
-              { $set: {
-                'doorAccess.entranceKeyboardPwdId': entranceRes.keyboardPwdId,
-                'doorAccess.entranceLockId': ENTRANCE_LOCK_ID,
-              }}
-            );
-            console.log(`[Beds24 Sync] Healing: Entrance-PIN nachgezogen fuer ${healTarget.bookingNumber} (${healTarget.roomName}) → ${healTarget.doorAccess.stayosCode}`);
-          } else {
-            console.log(`[Beds24 Sync] Healing Fehler ${healTarget.bookingNumber}: ${entranceRes.errmsg || JSON.stringify(entranceRes)}`);
-          }
-        } catch (e) {
-          console.log(`[Beds24 Sync] Healing Exception ${healTarget.bookingNumber}: ${e.message}`);
-        }
-      }
-
       // Link booking to guest
       if (guestId && result.value?._id) {
         await Guest.updateOne(
