@@ -62,10 +62,6 @@ async function syncBookings(source = 'cron') {
     const statusCounts = {};
     allBookings.forEach(b => { statusCounts[b.status || 'undefined'] = (statusCounts[b.status || 'undefined'] || 0) + 1; });
     console.log(`[Beds24 Debug] Status-Verteilung:`, JSON.stringify(statusCounts));
-    // Mustos Zoltan suchen
-    const mustos = allBookings.find(b => (b.firstName + ' ' + b.lastName).toLowerCase().includes('mustos') || (b.firstName + ' ' + b.lastName).toLowerCase().includes('zoltan'));
-    if (mustos) console.log(`[Beds24 Debug] Mustos gefunden: id=${mustos.id} status="${mustos.status}" name="${mustos.firstName} ${mustos.lastName}"`);
-    else console.log(`[Beds24 Debug] Mustos NICHT in Beds24 Response (${allBookings.length} Buchungen)`);
 
     for (const b of allBookings) {
       // Company upsert — prüfe aliases zuerst
