@@ -7,6 +7,7 @@ const EmailTemplate = require('../models/EmailTemplate');
 const { sendEmail } = require('./emailService');
 const { formatAddress } = require('../utils/formatAddress');
 const { titleCase } = require('../utils/formatName');
+const { wrapHtml } = require('../utils/emailLayout');
 
 const TENANT_ID = '507f1f77bcf86cd799439011';
 
@@ -65,27 +66,7 @@ async function buildVars(booking, guest, settings, property) {
 }
 
 // ─── HTML Fallback Templates ─────────────────────────────────────────────────
-
-function wrapHtml(bodyHtml, v) {
-  const accent = v.primaryColor || '#3d4fbc';
-  const logo = v.logoUrl;
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f5f6ff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6ff;padding:24px 0"><tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%">
-<tr><td style="background:${accent};padding:28px 36px;text-align:center;border-radius:12px 12px 0 0">
-<img src="${logo}" alt="${v.hotelName || ''}" height="55" style="height:55px;filter:brightness(0) invert(1);-webkit-filter:brightness(0) invert(1)">
-</td></tr>
-<tr><td style="background:#ffffff;padding:40px 36px;border-radius:0 0 12px 12px">
-${bodyHtml}
-<hr style="border:none;height:1px;background:#e8eaf5;margin:24px 0 16px">
-<p style="font-size:13px;color:#8890a5;text-align:center;line-height:1.6;margin:0 0 12px">${v.hotelName || ''}<br><a href="${v.googleMapsUrl || `https://maps.google.com/?q=${encodeURIComponent(v.address || '')}`}" style="color:#8890a5;text-decoration:none">${v.address || ''}</a></p>
-<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
-<a href="https://wa.me/${(v.hotelPhone || '').replace(/[^0-9]/g, '')}" style="display:inline-block;padding:10px 24px;border-radius:8px;background:#25D366;color:#fff;text-decoration:none;font-size:13px;font-weight:600">&#128172; WhatsApp</a>
-</td></tr></table>
-</td></tr></table>
-</td></tr></table></body></html>`;
-}
+// Shell (Header/Footer) kommt aus emailLayout.wrapHtml — hier nur Body-Builder.
 
 function buildConfirmationHtml(v) {
   const accent = v.primaryColor || '#3d4fbc';
