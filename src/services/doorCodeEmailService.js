@@ -208,7 +208,7 @@ async function sendDoorCodeEmail(bookingId, { overrideEmail, forceFormat } = {})
   await sendEmail({ tenantId: TENANT_ID, to, subject, html, text, forceFormat });
 
   if (!isTestMode) {
-    await Booking.updateOne({ _id: bookingId }, { $set: { 'communication.doorCodeSent': true } });
+    await Booking.updateOne({ _id: bookingId, tenantId: TENANT_ID }, { $set: { 'communication.doorCodeSent': true } });
   }
   console.log(`[DoorCodeEmail] Gesendet an ${to} (${booking.bookingNumber})${isTestMode ? ' [TEST]' : ''}`);
 }
