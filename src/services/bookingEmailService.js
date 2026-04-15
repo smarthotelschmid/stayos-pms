@@ -60,7 +60,7 @@ async function buildVars(booking, guest, settings, property) {
     effectiveCheckInTime: booking.earlyCheckIn || settings?.checkInTime || '15:00',
     effectiveCheckOutTime: booking.lateCheckOut || settings?.checkOutTime || '11:00',
     primaryColor: property?.ci?.primaryColor || '#3d4fbc',
-    logoUrl: property?.ci?.logoUrl || 'https://smarthotel-schmid.at/wp-content/uploads/2022/12/Logo-Smarthotel-SW-2-1.png',
+    logoUrl: property?.ci?.logoUrl || property?.logoUrl || '',
     guestPortalUrl: booking.guestPortalToken ? `https://guest.stayos.at/${booking.guestPortalToken}` : '',
   };
 }
@@ -190,7 +190,7 @@ async function loadContext(bookingId) {
   if (!booking) return null;
   const guest = booking.guestId ? await Guest.findOne({ _id: booking.guestId, tenantId: TENANT_ID }).lean() : null;
   const settings = await Settings.findOne({ tenantId: TENANT_ID });
-  const property = booking.propertyId ? await Property.findOne({ _id: booking.propertyId, tenantId: TENANT_ID }, 'ci name').lean() : null;
+  const property = booking.propertyId ? await Property.findOne({ _id: booking.propertyId, tenantId: TENANT_ID }, 'ci name logoUrl').lean() : null;
   return { booking, guest, settings, property };
 }
 
