@@ -173,12 +173,44 @@ async function syncBookings(source = 'cron') {
         // 1. Exakter Match in Room Collection
         let room = await Room.findOne({ name: savedBooking.roomName, tenantId: TENANT_ID }).lean();
         // 2. Fallback: Unit-Mapping aus Beds24 (z.B. "Deluxe" → roomId 546888, unitId → "Zimmer 1")
-        if (!room && savedBooking.beds24RoomId && savedBooking.beds24UnitId) {
+        if (!room && savedBooking.beds24RoomId && savedBooking.beds24UnitId && savedBooking.beds24UnitId > 0) {
           const unitName = UNIT_TO_ROOM[`${savedBooking.beds24RoomId}-${savedBooking.beds24UnitId}`];
           if (unitName) room = await Room.findOne({ name: unitName, tenantId: TENANT_ID }).lean();
         }
+        // 3. Auto-Assign bei Pool-Buchung (unitId=0/null): waehle ein freies Zimmer
+        //    des passenden Room-Types aus ROOM_MAPPING[...].stayosRooms.
+        //    Kollisionscheck: keine ueberlappende Buchung auf demselben Zimmer.
+        let autoAssigned = false;
+        if (!room && savedBooking.beds24RoomId && (!savedBooking.beds24UnitId || savedBooking.beds24UnitId < 1)) {
+          const typeInfo = ROOM_MAPPING[String(savedBooking.beds24RoomId)];
+          if (typeInfo?.stayosRooms?.length) {
+            const candidateNames = typeInfo.stayosRooms.map(s => /^\d+$/.test(s) ? `Zimmer ${s}` : s);
+            const candidates = await Room.find({ tenantId: TENANT_ID, name: { $in: candidateNames } }).lean();
+            const ci = new Date(savedBooking.checkIn);
+            const co = new Date(savedBooking.checkOut);
+            for (const cand of candidates) {
+              const conflict = await Booking.findOne({
+                tenantId: TENANT_ID,
+                _id: { $ne: savedBooking._id },
+                roomId: cand._id,
+                status: { $nin: ['cancelled', 'deleted', 'no-show', 'checked-out'] },
+                checkIn: { $lt: co },
+                checkOut: { $gt: ci },
+              }).lean();
+              if (!conflict) { room = cand; autoAssigned = true; break; }
+            }
+            if (!room) {
+              console.log(`[Beds24 Sync] Auto-Assign fehlgeschlagen fuer ${savedBooking.bookingNumber}: kein freies ${typeInfo.name}-Zimmer im Zeitraum`);
+            }
+          }
+        }
         if (room) {
           const roomUpdate = { roomId: room._id };
+          // Bei Auto-Assign auch roomName auf den konkreten Zimmer-Namen setzen
+          if (autoAssigned && savedBooking.roomName !== room.name) {
+            roomUpdate.roomName = room.name;
+            console.log(`[Beds24 Sync] Auto-Assign: ${savedBooking.bookingNumber} → ${room.name} (Pool-Buchung aus ${savedBooking.roomName})`);
+          }
           const settings = await Settings.findOne({ tenantId: TENANT_ID }, 'ttlock.locks checkInTime checkOutTime').lean();
           const lock = (settings?.ttlock?.locks || []).find(l => l.roomId?.toString() === room._id.toString());
           if (lock) roomUpdate['doorAccess.roomLockId'] = lock.lockId;
