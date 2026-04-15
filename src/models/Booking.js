@@ -215,6 +215,9 @@ const bookingSchema = new mongoose.Schema({
   // Manuell überschrieben — Sync darf diese Buchung nicht mehr ändern
   manualOverride: { type: Boolean, default: false },
 
+  // Test-Buchung für Template-Preview im Email-Editor
+  isTest: { type: Boolean, default: false },
+
   // Self Check-in
   checkInToken: { type: String },
   checkInTokenExpiry: { type: Date },

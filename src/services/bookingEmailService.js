@@ -72,11 +72,13 @@ async function buildVars(booking, guest, settings, property) {
 }
 
 // ─── HTML Fallback Templates ─────────────────────────────────────────────────
-// Shell (Header/Footer) kommt aus emailLayout.wrapHtml — hier nur Body-Builder.
+// Body-Only — Shell (Header/Footer) kommt aus emailLayout.wrapHtml.
+// Die Sender-Funktionen rufen wrapHtml(body, vars) konsistent nach dem
+// Variablen-Replace, egal ob body aus DB-Template oder aus Fallback kommt.
 
-function buildConfirmationHtml(v) {
+function buildConfirmationBody(v) {
   const accent = v.primaryColor || '#3d4fbc';
-  const body = `
+  return `
 <p style="font-size:22px;font-weight:700;color:#1a1f3c;margin:0 0 8px">Guten Tag ${v.guestFirstName || v.guestName || 'Gast'},</p>
 <p style="font-size:15px;color:#4a5067;line-height:1.65;margin:0 0 20px">vielen Dank f&uuml;r Ihre Buchung bei ${v.hotelName}! Wir freuen uns auf Ihren Besuch.</p>
 
@@ -105,7 +107,6 @@ function buildConfirmationHtml(v) {
 <p style="font-size:18px;font-weight:700;color:${accent};text-align:center;letter-spacing:1px;margin:0 0 24px">${v.bookingNumber}</p>
 
 <p style="font-size:14px;color:#4a5067;line-height:1.65;margin:0 0 8px">Ihren pers&ouml;nlichen T&uuml;rcode senden wir Ihnen rechtzeitig vor Ihrer Anreise in einer separaten E-Mail.</p>`;
-  return wrapHtml(body, v);
 }
 
 function buildConfirmationText(v) {
@@ -133,9 +134,9 @@ function buildConfirmationText(v) {
   ].join('\n');
 }
 
-function buildCancellationHtml(v) {
+function buildCancellationBody(v) {
   const accent = v.primaryColor || '#3d4fbc';
-  const body = `
+  return `
 <p style="font-size:22px;font-weight:700;color:#1a1f3c;margin:0 0 8px">Guten Tag ${v.guestFirstName || v.guestName || 'Gast'},</p>
 <p style="font-size:15px;color:#4a5067;line-height:1.65;margin:0 0 20px">hiermit best&auml;tigen wir die Stornierung Ihrer Buchung bei ${v.hotelName}.</p>
 
@@ -161,7 +162,6 @@ function buildCancellationHtml(v) {
 <p style="font-size:18px;font-weight:700;color:${accent};text-align:center;letter-spacing:1px;margin:0 0 24px">${v.bookingNumber}</p>
 
 <p style="font-size:14px;color:#4a5067;line-height:1.65;margin:0 0 8px">Sollte die Stornierung irrt&uuml;mlich erfolgt sein, melden Sie sich bitte umgehend bei uns. Wir w&uuml;rden uns freuen, Sie zu einem sp&auml;teren Zeitpunkt bei uns begr&uuml;&szlig;en zu d&uuml;rfen.</p>`;
-  return wrapHtml(body, v);
 }
 
 function buildCancellationText(v) {
@@ -196,7 +196,14 @@ async function loadContext(bookingId) {
   if (!booking) return null;
   const guest = booking.guestId ? await Guest.findOne({ _id: booking.guestId, tenantId: TENANT_ID }).lean() : null;
   const settings = await Settings.findOne({ tenantId: TENANT_ID });
-  const property = booking.propertyId ? await Property.findOne({ _id: booking.propertyId, tenantId: TENANT_ID }).lean() : null;
+  // Property: primär aus booking.propertyId, sonst erste aktive Property des Tenants
+  // (damit Direktbuchungen ohne explizite Property-Verknüpfung trotzdem Logo+CI bekommen)
+  let property = booking.propertyId
+    ? await Property.findOne({ _id: booking.propertyId, tenantId: TENANT_ID }).lean()
+    : null;
+  if (!property) {
+    property = await Property.findOne({ tenantId: TENANT_ID, active: { $ne: false } }).sort({ createdAt: 1 }).lean();
+  }
   return { booking, guest, settings, property };
 }
 
@@ -226,7 +233,8 @@ async function sendConfirmationEmail(bookingId) {
   );
   const htmlTpl = template?.contentHtml?.[lang] || template?.contentHtml?.de || '';
   const textTpl = template?.contentText?.[lang] || template?.contentText?.de || '';
-  const html = replaceVars(htmlTpl || buildConfirmationHtml(vars), vars);
+  const bodyHtml = replaceVars(htmlTpl || buildConfirmationBody(vars), vars);
+  const html = wrapHtml(bodyHtml, vars);
   const text = replaceVars(textTpl || buildConfirmationText(vars), vars);
 
   await sendEmail({ tenantId: TENANT_ID, to, subject, html, text });
@@ -260,7 +268,8 @@ async function sendCancellationEmail(bookingId) {
   );
   const htmlTpl = template?.contentHtml?.[lang] || template?.contentHtml?.de || '';
   const textTpl = template?.contentText?.[lang] || template?.contentText?.de || '';
-  const html = replaceVars(htmlTpl || buildCancellationHtml(vars), vars);
+  const bodyHtml = replaceVars(htmlTpl || buildCancellationBody(vars), vars);
+  const html = wrapHtml(bodyHtml, vars);
   const text = replaceVars(textTpl || buildCancellationText(vars), vars);
 
   await sendEmail({ tenantId: TENANT_ID, to, subject, html, text });
@@ -271,8 +280,10 @@ async function sendCancellationEmail(bookingId) {
 module.exports = {
   sendConfirmationEmail,
   sendCancellationEmail,
-  buildConfirmationHtml,
+  buildConfirmationBody,
   buildConfirmationText,
-  buildCancellationHtml,
+  buildCancellationBody,
   buildCancellationText,
+  buildVars,
+  loadContext,
 };

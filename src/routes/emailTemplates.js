@@ -2,8 +2,19 @@ const express = require('express');
 const router = express.Router();
 const EmailTemplate = require('../models/EmailTemplate');
 const Settings = require('../models/Settings');
+const Booking = require('../models/Booking');
 const { sendEmail } = require('../services/emailService');
+const { loadContext, buildVars } = require('../services/bookingEmailService');
+const { wrapHtml } = require('../utils/emailLayout');
 const Anthropic = require('@anthropic-ai/sdk');
+
+function replaceVars(text, vars) {
+  if (!text) return '';
+  return text.replace(/\{\{(\w+)\}\}/g, (_, key) => {
+    const v = vars[key];
+    return (v === undefined || v === null || v === '') ? '' : String(v);
+  });
+}
 
 const TENANT_ID = '507f1f77bcf86cd799439011';
 const DAILY_LIMIT = 10;
@@ -19,17 +30,60 @@ try {
 } catch {}
 
 // POST /api/email-templates/test
+// Body: { to, subject, html, text?, bcc? }
+// html/subject duerfen {{var}} Platzhalter enthalten. Wir laden die Test-
+// Buchung (oder irgendeine Buchung als Fallback), bauen Vars wie im
+// Produktivpfad, ersetzen Platzhalter, wrappen body mit Shell.
 router.post('/test', async (req, res) => {
   try {
-    const { to, subject, html, bcc } = req.body;
+    const { to, subject, html, text, bcc } = req.body;
     if (!to) return res.json({ success: false, error: 'Empfänger fehlt' });
+
+    // Test-Buchung finden — fallback auf erste confirmed Buchung
+    let booking = await Booking.findOne({ tenantId: TENANT_ID, isTest: true });
+    if (!booking) {
+      booking = await Booking.findOne({ tenantId: TENANT_ID, status: 'confirmed' }).sort({ checkIn: 1 });
+    }
+
+    let vars = {};
+    if (booking) {
+      const ctx = await loadContext(booking._id);
+      if (ctx) vars = await buildVars(ctx.booking, ctx.guest, ctx.settings, ctx.property);
+    }
+
+    const resolvedSubject = replaceVars(subject || 'STAYOS Test', vars);
+    const bodyHtml = replaceVars(html || '<p>Test</p>', vars);
+    const wrappedHtml = wrapHtml(bodyHtml, vars);
+    const resolvedText = text ? replaceVars(text, vars) : undefined;
+
     await sendEmail({
-      tenantId: TENANT_ID, to, subject: subject || 'STAYOS Test',
-      html: html || '<p>Test</p>', ...(bcc ? { bcc } : {}),
+      tenantId: TENANT_ID, to,
+      subject: resolvedSubject,
+      html: wrappedHtml,
+      ...(resolvedText ? { text: resolvedText } : {}),
+      ...(bcc ? { bcc } : {}),
     });
-    res.json({ success: true, message: `Test gesendet an ${to}` });
+    res.json({ success: true, message: `Test gesendet an ${to}`, usedBooking: booking?.bookingNumber || null });
   } catch (err) {
-    res.json({ success: false, error: err.message });
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/email-templates/preview-booking — liefert Test-Buchung + gebaute Vars
+// fuer Frontend-Preview im Template-Editor
+router.get('/preview-booking', async (req, res) => {
+  try {
+    let booking = await Booking.findOne({ tenantId: TENANT_ID, isTest: true });
+    if (!booking) {
+      booking = await Booking.findOne({ tenantId: TENANT_ID, status: 'confirmed' }).sort({ checkIn: 1 });
+    }
+    if (!booking) return res.json({ success: false, error: 'Keine Preview-Buchung verfügbar' });
+
+    const ctx = await loadContext(booking._id);
+    const vars = ctx ? await buildVars(ctx.booking, ctx.guest, ctx.settings, ctx.property) : {};
+    res.json({ success: true, data: { bookingNumber: booking.bookingNumber, vars } });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
