@@ -27,7 +27,7 @@ function replaceVars(text, vars) {
 async function resolveRecipient(booking, guest) {
   let to = booking.contactEmail || guest?.email;
   if (!to && booking.companyId) {
-    const company = await Company.findById(booking.companyId, 'contactEmail').lean();
+    const company = await Company.findOne({ _id: booking.companyId, tenantId: TENANT_ID }, 'contactEmail').lean();
     to = company?.contactEmail;
   }
   return to || null;
@@ -205,11 +205,11 @@ function buildCancellationText(v) {
 // ─── Send-Funktionen ─────────────────────────────────────────────────────────
 
 async function loadContext(bookingId) {
-  const booking = await Booking.findById(bookingId);
+  const booking = await Booking.findOne({ _id: bookingId, tenantId: TENANT_ID });
   if (!booking) return null;
-  const guest = booking.guestId ? await Guest.findById(booking.guestId).lean() : null;
+  const guest = booking.guestId ? await Guest.findOne({ _id: booking.guestId, tenantId: TENANT_ID }).lean() : null;
   const settings = await Settings.findOne({ tenantId: TENANT_ID });
-  const property = booking.propertyId ? await Property.findById(booking.propertyId, 'ci name').lean() : null;
+  const property = booking.propertyId ? await Property.findOne({ _id: booking.propertyId, tenantId: TENANT_ID }, 'ci name').lean() : null;
   return { booking, guest, settings, property };
 }
 
