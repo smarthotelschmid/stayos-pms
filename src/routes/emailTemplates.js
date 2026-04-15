@@ -39,8 +39,16 @@ router.post('/test', async (req, res) => {
     const { to, subject, html, text, bcc } = req.body;
     if (!to) return res.json({ success: false, error: 'Empfänger fehlt' });
 
-    // Test-Buchung finden — fallback auf erste confirmed Buchung
-    let booking = await Booking.findOne({ tenantId: TENANT_ID, isTest: true });
+    // Naechste bevorstehende bestaetigte Buchung mit Tuercode.
+    // checkIn >= heute 00:00, status confirmed, stayosCode vorhanden,
+    // sortiert nach checkIn aufsteigend. Fallback: irgendeine confirmed.
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    let booking = await Booking.findOne({
+      tenantId: TENANT_ID,
+      status: 'confirmed',
+      checkIn: { $gte: today },
+      'doorAccess.stayosCode': { $exists: true, $ne: null },
+    }).sort({ checkIn: 1 });
     if (!booking) {
       booking = await Booking.findOne({ tenantId: TENANT_ID, status: 'confirmed' }).sort({ checkIn: 1 });
     }
@@ -73,7 +81,14 @@ router.post('/test', async (req, res) => {
 // fuer Frontend-Preview im Template-Editor
 router.get('/preview-booking', async (req, res) => {
   try {
-    let booking = await Booking.findOne({ tenantId: TENANT_ID, isTest: true });
+    // Naechste bevorstehende bestaetigte Buchung mit Tuercode
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    let booking = await Booking.findOne({
+      tenantId: TENANT_ID,
+      status: 'confirmed',
+      checkIn: { $gte: today },
+      'doorAccess.stayosCode': { $exists: true, $ne: null },
+    }).sort({ checkIn: 1 });
     if (!booking) {
       booking = await Booking.findOne({ tenantId: TENANT_ID, status: 'confirmed' }).sort({ checkIn: 1 });
     }
