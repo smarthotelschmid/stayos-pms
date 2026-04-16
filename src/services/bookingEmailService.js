@@ -205,11 +205,9 @@ async function sendConfirmationEmail(bookingId) {
     template?.subject?.[lang] || template?.subject?.de || 'Buchungsbestätigung — {{hotelName}}',
     vars
   );
-  const htmlTpl = template?.contentHtml?.[lang] || template?.contentHtml?.de || '';
-  const textTpl = template?.contentText?.[lang] || template?.contentText?.de || '';
-  const bodyHtml = replaceVars(htmlTpl || buildConfirmationBody(vars), vars);
+  const bodyHtml = replaceVars(buildConfirmationBody(vars), vars);
   const html = wrapHtml(bodyHtml, vars);
-  const text = replaceVars(textTpl || buildConfirmationText(vars), vars);
+  const text = replaceVars(buildConfirmationText(vars), vars);
 
   await sendEmail({ tenantId: TENANT_ID, to, subject, html, text });
   await Booking.updateOne({ _id: bookingId }, { $set: { 'communication.confirmationSent': true } });
