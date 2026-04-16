@@ -21,7 +21,7 @@ function renderBlocksBody(blocks, vars) {
   let body = '';
   for (const b of blocks) {
     if (b.type === 'text') {
-      const size = b.size === 'small' ? 'font-size:13px;color:#8890a5;' : 'font-size:15px;color:#4a5067;line-height:1.65;';
+      const tc = vars.textColor || '#1a1f3c'; const size = b.size === 'small' ? 'font-size:13px;color:#8890a5;' : 'font-size:15px;color:' + tc + ';line-height:1.65;';
       const align = b.align ? `text-align:${b.align};` : '';
       body += `<p style="${size}${align}margin:0 0 16px">${rv(b.content).replace(/\n/g, '<br>')}</p>`;
     } else if (b.type === 'button') {
@@ -30,7 +30,7 @@ function renderBlocksBody(blocks, vars) {
     } else if (b.type === 'columns') {
       body += '<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6ff;border-radius:10px;margin:16px 0"><tr>';
       for (const col of (b.cols || [])) {
-        body += `<td style="padding:16px 12px;text-align:center;vertical-align:top"><div style="font-size:22px;margin-bottom:4px">${col.icon || ''}</div><div style="font-size:10px;color:#8890a5;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:2px">${rv(col.label)}</div><div style="font-size:14px;font-weight:600;color:#1a1f3c">${rv(col.value)}</div></td>`;
+        body += `<td style="padding:16px 12px;text-align:center;vertical-align:top"><div style="font-size:22px;margin-bottom:4px">${col.icon || ''}</div><div style="font-size:10px;color:#8890a5;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:2px">${rv(col.label)}</div><div style="font-size:14px;font-weight:600;color:${vars.textColor || '#1a1f3c'}">${rv(col.value)}</div></td>`;
       }
       body += '</tr></table>';
     } else if (b.type === 'divider') {
@@ -45,8 +45,8 @@ function renderBlocksBody(blocks, vars) {
 // Fallback-Body für Türcode-Mail (Greeting + CTA + Info-Box).
 function buildFallbackBody(v) {
   const accent = v.primaryColor || '#3d4fbc';
-  return `<p style="font-size:22px;font-weight:700;color:#1a1f3c;margin:0 0 8px">Guten Tag ${v.guestFirstName || 'Gast'},</p>
-<p style="font-size:15px;color:#4a5067;line-height:1.65;margin:0 0 28px">alles ist f&uuml;r Ihren Aufenthalt vorbereitet. Ihren pers&ouml;nlichen Zugangscode und alle wichtigen Informationen finden Sie in Ihrem G&auml;steportal.</p>
+  return `<p style="font-size:22px;font-weight:700;color:${v.textColor || '#1a1f3c'};margin:0 0 8px">Guten Tag ${v.guestFirstName || 'Gast'},</p>
+<p style="font-size:15px;color:${v.textColor || '#1a1f3c'};line-height:1.65;margin:0 0 28px">alles ist f&uuml;r Ihren Aufenthalt vorbereitet. Ihren pers&ouml;nlichen Zugangscode und alle wichtigen Informationen finden Sie in Ihrem G&auml;steportal.</p>
 <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:0 0 32px">
 <a href="${v.guestPortalLink || '#'}" style="display:inline-block;background:${accent};color:#ffffff;padding:16px 40px;border-radius:10px;text-decoration:none;font-size:16px;font-weight:600;letter-spacing:0.3px">Zum G&auml;steportal &rarr;</a>
 </td></tr></table>
@@ -54,19 +54,19 @@ function buildFallbackBody(v) {
 <td width="33%" style="padding:20px 12px;text-align:center;vertical-align:top">
 <div style="font-size:24px;margin-bottom:6px">&#128197;</div>
 <div style="font-size:10px;color:#8890a5;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px">Check-in</div>
-<div style="font-size:14px;font-weight:600;color:#1a1f3c">${v.checkIn || ''}</div>
+<div style="font-size:14px;font-weight:600;color:${v.textColor || '#1a1f3c'}">${v.checkIn || ''}</div>
 <div style="font-size:12px;color:#8890a5">ab ${v.effectiveCheckInTime || '15:00'}</div>
 </td>
 <td width="33%" style="padding:20px 12px;text-align:center;vertical-align:top;border-left:1px solid #e8eaf5;border-right:1px solid #e8eaf5">
 <div style="font-size:24px;margin-bottom:6px">&#128228;</div>
 <div style="font-size:10px;color:#8890a5;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px">Check-out</div>
-<div style="font-size:14px;font-weight:600;color:#1a1f3c">${v.checkOut || ''}</div>
+<div style="font-size:14px;font-weight:600;color:${v.textColor || '#1a1f3c'}">${v.checkOut || ''}</div>
 <div style="font-size:12px;color:#8890a5">bis ${v.effectiveCheckOutTime || '11:00'}</div>
 </td>
 <td width="33%" style="padding:20px 12px;text-align:center;vertical-align:top">
 <div style="font-size:24px;margin-bottom:6px">&#128716;</div>
 <div style="font-size:10px;color:#8890a5;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px">Zimmer</div>
-<div style="font-size:14px;font-weight:600;color:#1a1f3c">${v.roomName || ''}</div>
+<div style="font-size:14px;font-weight:600;color:${v.textColor || '#1a1f3c'}">${v.roomName || ''}</div>
 <div style="font-size:12px;color:#8890a5">${v.nights || ''} N&auml;chte</div>
 </td>
 </tr></table>`;
@@ -142,6 +142,7 @@ async function buildVars(booking, guest, settings, property) {
     effectiveCheckInTime: booking.earlyCheckIn || property?.checkInTime || settings?.checkInTime || '',
     effectiveCheckOutTime: booking.lateCheckOut || property?.checkOutTime || settings?.checkOutTime || '',
     primaryColor: property?.ci?.primaryColor || '',
+    textColor: property?.ci?.textColor || '',
     logoUrl: property?.ci?.logoUrl || property?.logoUrl || '',
     tagline: property?.ci?.tagline || '',
     emailFooter: property?.ci?.emailFooter || '',
