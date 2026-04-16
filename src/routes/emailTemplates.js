@@ -234,13 +234,25 @@ router.post('/:type/test-send', async (req, res) => {
     if (!to) return res.status(400).json({ success: false, error: 'to fehlt' });
 
     if (type === 'confirmation') {
-      const { sendConfirmationEmail } = require('../services/bookingEmailService');
+      const { buildVars, loadContext, buildConfirmationBody, buildConfirmationText } = require('../services/bookingEmailService');
+      const { wrapHtml } = require('../utils/emailLayout');
       const Booking = require('../models/Booking');
       const booking = await Booking.findOne({ tenantId: TENANT_ID, status: { $in: ['confirmed', 'checked-in'] } }).sort({ createdAt: -1 }).lean();
       if (!booking) return res.status(404).json({ success: false, error: 'Keine Buchung gefunden' });
-      await Booking.updateOne({ _id: booking._id }, { $set: { 'communication.confirmationSent': false } });
-      await sendConfirmationEmail(booking._id);
-      await Booking.updateOne({ _id: booking._id }, { $set: { 'communication.confirmationSent': true } });
+      const template = await EmailTemplate.findOne({ tenantId: TENANT_ID, type: 'confirmation' });
+      const ctx = await loadContext(booking._id);
+      const vars = await buildVars(ctx.booking, ctx.guest, ctx.settings, ctx.property);
+      const greetingBlocks = template?.contentJson?.de || [];
+      const greetingBlock = greetingBlocks.find(b => b?.type === 'text');
+      vars.greetingText = greetingBlock?.content || '';
+      // HTML Version
+      const bodyHtml = replaceVars(buildConfirmationBody(vars), vars);
+      const html = wrapHtml(bodyHtml, vars);
+      // Plain Text Version
+      const text = replaceVars(buildConfirmationText(vars), vars);
+      // Beide senden
+      await sendEmail({ tenantId: TENANT_ID, to, subject: '[TEST HTML] Buchungsbestätigung', html, text });
+      await sendEmail({ tenantId: TENANT_ID, to, subject: '[TEST Plain] Buchungsbestätigung', text, forceFormat: 'text' });
     }
 
     res.json({ success: true });
