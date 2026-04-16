@@ -272,6 +272,18 @@ router.post('/:type/test-send', async (req, res) => {
       await sendCancellationEmail(booking._id, { overrideEmail: to, forceFormat: 'text' });
     }
 
+    if (type === 'review') {
+      const { sendReviewEmail } = require('../services/reviewEmailService');
+      const Booking = require('../models/Booking');
+      // Letzte ausgecheckte Buchung als Referenz
+      const booking = await Booking.findOne({ tenantId: TENANT_ID, status: { $in: ['checked-out', 'confirmed'] } }).sort({ checkOut: -1 }).lean();
+      if (!booking) return res.status(404).json({ success: false, error: 'Keine Buchung gefunden' });
+      // HTML Version
+      await sendReviewEmail(booking._id, { overrideEmail: to });
+      // Plain Text Version
+      await sendReviewEmail(booking._id, { overrideEmail: to, forceFormat: 'text' });
+    }
+
     res.json({ success: true });
   } catch (err) {
     console.error('[EmailTemplate Test]', err.message);
