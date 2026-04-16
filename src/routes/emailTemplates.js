@@ -276,7 +276,8 @@ router.post('/:type/test-send', async (req, res) => {
       const { sendReviewEmail } = require('../services/reviewEmailService');
       const Booking = require('../models/Booking');
       // Letzte ausgecheckte Buchung als Referenz
-      const booking = await Booking.findOne({ tenantId: TENANT_ID, status: { $in: ['checked-out', 'confirmed'] } }).sort({ checkOut: -1 }).lean();
+      const today = new Date(); today.setHours(23, 59, 59, 999);
+      const booking = await Booking.findOne({ tenantId: TENANT_ID, status: { $in: ['checked-out', 'confirmed'] }, checkOut: { $lte: today } }).sort({ checkOut: -1 }).lean();
       if (!booking) return res.status(404).json({ success: false, error: 'Keine Buchung gefunden' });
       // HTML Version
       await sendReviewEmail(booking._id, { overrideEmail: to });
