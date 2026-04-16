@@ -166,6 +166,34 @@ router.get('/hotel', async (req, res) => {
 });
 
 // GET /api/email-templates/:type
+// GET /api/email-templates/whatsapp/render?bookingId=...
+router.get('/whatsapp/render', async (req, res) => {
+  try {
+    const { bookingId } = req.query;
+    if (!bookingId) return res.status(400).json({ success: false, error: 'bookingId fehlt' });
+
+    const { loadContext, buildVars } = require('../services/bookingEmailService');
+    const { buildGuestPortalUrl } = require('../utils/guestPortalUrl');
+    const ctx = await loadContext(bookingId);
+    if (!ctx) return res.status(404).json({ success: false, error: 'Buchung nicht gefunden' });
+
+    const { booking, guest, settings, property } = ctx;
+    const template = await EmailTemplate.findOne({ tenantId: TENANT_ID, type: 'whatsapp' });
+    const vars = await buildVars(booking, guest, settings, property);
+
+    let text = template?.data?.de?.welcomeText || template?.contentText?.de || '';
+    if (!text) {
+      // Fallback
+      text = 'Hallo {{guestFirstName}}, hier ist Ihr Gäste-Portal: {{guestPortalLink}}';
+    }
+    text = replaceVars(text, vars);
+
+    res.json({ success: true, text });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 router.get('/:type', async (req, res) => {
   try {
     const template = await EmailTemplate.findOne({ tenantId: TENANT_ID, type: req.params.type });
