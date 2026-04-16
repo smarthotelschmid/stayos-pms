@@ -451,14 +451,15 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// POST /:id/send-portal — Portal-Link / Türcode-Email manuell senden
 router.post('/:id/send-portal', async (req, res) => {
   try {
     const booking = await Booking.findOne({ _id: req.params.id, tenantId: TENANT_ID });
     if (!booking) return res.status(404).json({ success: false, error: 'Buchung nicht gefunden' });
+    // Guard zurücksetzen damit Resend funktioniert
+    await Booking.updateOne({ _id: booking._id, tenantId: TENANT_ID }, { $set: { 'communication.doorCodeSent': false } });
     const { sendDoorCodeEmail } = require('../services/doorCodeEmailService');
     await sendDoorCodeEmail(booking._id);
-    res.json({ success: true });
+    res.json({ success: true, message: 'Email gesendet' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
