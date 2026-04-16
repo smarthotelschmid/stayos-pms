@@ -33,6 +33,7 @@ const softBlocksRouter     = require('./routes/softBlocks');
 const { startSync }                                    = require('./services/syncService');
 const { startTTLockCron, getDoorcodeTemplate, timeToCron } = require('./services/ttlockService');
 const { sendDoorCodeEmailsForToday }                   = require('./services/doorCodeEmailService');
+const { sendReviewEmailsForToday }                     = require('./services/reviewEmailService');
 const { createTestGuest, createTestBooking, migratePortalTemplate, migrateSettingsLogo, migrateGuestNormNameKeys, migrateDeletedBookingMeta } = require('./services/seedService');
 
 app.use('/api/rooms',           roomsRouter);
@@ -74,6 +75,20 @@ async function startEmailCron() {
   return { sendTime };
 }
 
+// ─── Review-Cron: 17:00 Vienna (1 Tag nach Check-out) ────────────────────────
+let _reviewCronTask = null;
+
+function startReviewCron() {
+  if (_reviewCronTask) { _reviewCronTask.stop(); _reviewCronTask = null; }
+  _reviewCronTask = cron.schedule('0 17 * * *', () => {
+    console.log('[ReviewCron] Bewertungsanfragen für heute...');
+    sendReviewEmailsForToday().catch(e =>
+      console.error('[ReviewCron] Fehler:', e.message)
+    );
+  }, { timezone: 'Europe/Vienna' });
+  console.log('[ReviewCron] Gestartet → Versand 17:00');
+}
+
 // Öffentliche Funktion damit emailTemplates-Route nach Save neu starten kann
 async function restartEmailCron() {
   return startEmailCron();
@@ -89,6 +104,7 @@ mongoose.connect(process.env.MONGODB_URI)
     startSync();
     await startTTLockCron();
     await startEmailCron();
+    startReviewCron();
     createTestGuest().then(() => createTestBooking()).catch(() => {});
     migratePortalTemplate().catch(e => console.log('[Seed] Portal-Migration Fehler:', e.message));
     migrateSettingsLogo().catch(e => console.log('[Seed] Logo-Migration Fehler:', e.message));

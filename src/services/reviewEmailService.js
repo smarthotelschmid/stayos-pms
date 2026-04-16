@@ -150,4 +150,39 @@ async function sendReviewEmail(bookingId, { overrideEmail, forceFormat } = {}) {
   console.log(`[ReviewEmail] Gesendet an ${to} (${booking.bookingNumber})${isTestMode ? ' [TEST]' : ''}`);
 }
 
-module.exports = { sendReviewEmail };
+// Batch: Buchungen deren Check-out = gestern (1 Tag nach Check-out)
+async function sendReviewEmailsForToday() {
+  const template = await EmailTemplate.findOne({ tenantId: TENANT_ID, type: 'review' });
+  const daysAfter = template?.daysBefore !== undefined ? template.daysBefore : 1;
+
+  const targetDate = new Date();
+  targetDate.setDate(targetDate.getDate() - daysAfter);
+  const start = new Date(targetDate); start.setHours(0, 0, 0, 0);
+  const end = new Date(targetDate); end.setHours(23, 59, 59, 999);
+
+  const bookings = await Booking.find({
+    tenantId: TENANT_ID,
+    checkOut: { $gte: start, $lte: end },
+    status: { $in: ['checked-out', 'confirmed'] },
+    'communication.reviewRequestSent': { $ne: true },
+  });
+
+  if (bookings.length === 0) {
+    console.log('[ReviewEmail] Keine Bewertungsanfragen zu senden');
+    return { sent: 0 };
+  }
+
+  let sent = 0;
+  for (const booking of bookings) {
+    try {
+      await sendReviewEmail(booking._id);
+      sent++;
+    } catch (e) {
+      console.error('[ReviewEmail] Fehler ' + booking.bookingNumber + ':', e.message);
+    }
+  }
+  console.log('[ReviewEmail] ' + sent + '/' + bookings.length + ' Emails gesendet');
+  return { sent, total: bookings.length };
+}
+
+module.exports = { sendReviewEmail, sendReviewEmailsForToday };
