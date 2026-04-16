@@ -8,7 +8,7 @@ const Room = require('../models/Room');
 const Settings = require('../models/Settings');
 const { transformBeds24Booking, transformBeds24Guest, transformBeds24Company, isEmailFake } = require('./dataTransformer');
 const { getToken, ttlockPost, CLIENT_ID } = require('./ttlockHelper');
-const { timeToUnix } = require('./ttlockService');
+const { timeToUnix, generateCodeIfImminent } = require('./ttlockService');
 const { sendDoorCodeEmail } = require('./doorCodeEmailService');
 const { sendConfirmationEmail, sendCancellationEmail } = require('./bookingEmailService');
 const ENTRANCE_LOCK_ID = 3321320;
@@ -258,54 +258,12 @@ async function syncBookings(source = 'cron') {
         }
       }
 
-      // Code generieren wenn Buchung confirmed + kein STAYOS-Code + roomLockId vorhanden
+      // Code generieren — nur wenn checkIn heute oder morgen (Cron übernimmt den Rest)
       const freshBooking = await Booking.findOne({ _id: result.value?._id, tenantId: TENANT_ID }).lean();
       if (freshBooking && freshBooking.status === 'confirmed' && !freshBooking.doorAccess?.stayosCode && freshBooking.doorAccess?.roomLockId) {
-        try {
-          const settings2 = await Settings.findOne({ tenantId: TENANT_ID }).lean();
-          const lockEntry = (settings2?.ttlock?.locks || []).find(l => l.lockId === freshBooking.doorAccess.roomLockId);
-          if (lockEntry && settings2?.ttlock?.accessToken) {
-            const token = await getToken();
-            const checkInTime = settings2.checkInTime || '15:00';
-            const checkOutTime = settings2.checkOutTime || '11:00';
-            const ciStr2 = new Date(freshBooking.checkIn).toLocaleDateString('en-CA', { timeZone: 'Europe/Vienna' });
-            const coStr2 = new Date(freshBooking.checkOut).toLocaleDateString('en-CA', { timeZone: 'Europe/Vienna' });
-            const startMs2 = timeToUnix(ciStr2, checkInTime);
-            const endMs2 = timeToUnix(coStr2, checkOutTime);
-            const pin = String(1000 + Math.floor(Math.random() * 9000));
-            const pwdParams = {
-              clientId: CLIENT_ID, accessToken: token,
-              keyboardPwdType: 3, keyboardPwd: pin, addType: 2,
-              startDate: startMs2.toString(), endDate: endMs2.toString(),
-              keyboardPwdName: `${freshBooking.guestName || ''} ${freshBooking.bookingNumber || ''}`.trim(),
-              date: Date.now(),
-            };
-            const roomResult = await ttlockPost('/v3/keyboardPwd/add', { ...pwdParams, lockId: lockEntry.lockId });
-            const entranceResult = await ttlockPost('/v3/keyboardPwd/add', { ...pwdParams, lockId: ENTRANCE_LOCK_ID });
-            if (roomResult.keyboardPwdId) {
-              await Booking.updateOne({ _id: freshBooking._id }, { $set: {
-                'doorAccess.stayosCode': pin,
-                'doorAccess.roomKeyboardPwdId': roomResult.keyboardPwdId,
-                'doorAccess.entranceKeyboardPwdId': entranceResult.keyboardPwdId || null,
-                'doorAccess.roomLockId': lockEntry.lockId,
-                'doorAccess.entranceLockId': ENTRANCE_LOCK_ID,
-                'doorAccess.generatedAt': new Date(),
-                'doorAccess.validFrom': new Date(startMs2),
-                'doorAccess.validTo': new Date(endMs2),
-              }});
-              console.log(`[Beds24 Sync] Code generiert: ${freshBooking.roomName} → ${pin} (${freshBooking.guestName})`);
-
-              // Code generiert → Türcode-Email nur wenn Check-in heute (same-day).
-              // Für künftige Buchungen übernimmt der sendTime-Cron in doorCodeEmailService.
-              const todayVienna = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Vienna' });
-              if (ciStr2 === todayVienna) {
-                sendDoorCodeEmail(freshBooking._id).catch(e => console.log(`[Beds24 Sync] Email Fehler: ${e.message}`));
-              }
-            }
-          }
-        } catch (e) {
-          console.log(`[Beds24 Sync] Code-Generierung Fehler: ${e.message}`);
-        }
+        generateCodeIfImminent(freshBooking).catch(e =>
+          console.log(`[Beds24 Sync] generateCodeIfImminent Fehler: ${e.message}`)
+        );
       }
 
       // Link booking to guest
