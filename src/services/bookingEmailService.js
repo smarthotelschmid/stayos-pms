@@ -138,8 +138,13 @@ function buildCancellationBody(v) {
 
 function buildCancellationText(v) {
   const text = v.greetingText || 'Guten Tag ' + (v.guestFirstName || v.guestName || 'Gast') + ',\n\nhiermit bestätigen wir die Stornierung Ihrer Buchung bei ' + v.hotelName + '.';
-  const portalLine = v.guestPortalLink ? 'Zum Gästeportal: ' + v.guestPortalLink : '';
-  return [text, portalLine].filter(Boolean).join('\n\n');
+  const details = [
+    v.checkIn ? 'Check-in: ' + v.checkIn : '',
+    v.checkOut ? 'Check-out: ' + v.checkOut : '',
+    v.roomName ? 'Zimmer: ' + v.roomName : '',
+    v.bookingNumber ? 'Buchungsnummer: ' + v.bookingNumber : '',
+  ].filter(Boolean).join('\n');
+  return [text, details].filter(Boolean).join('\n\n');
 }
 
 // ─── Send-Funktionen ─────────────────────────────────────────────────────────
