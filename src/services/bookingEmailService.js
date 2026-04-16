@@ -197,6 +197,9 @@ async function sendConfirmationEmail(bookingId) {
   const lang = guest?.preferredLanguage || 'de';
   const template = await EmailTemplate.findOne({ tenantId: TENANT_ID, type: 'confirmation' });
   const vars = await buildVars(booking, guest, settings, property);
+  const greetingBlocks = template?.contentJson?.[lang] || template?.contentJson?.de || [];
+  const greetingBlock = Array.isArray(greetingBlocks) ? greetingBlocks.find(b => b?.type === 'text' && b?.content) : null;
+  vars.greetingText = greetingBlock?.content || '';
 
   const subject = replaceVars(
     template?.subject?.[lang] || template?.subject?.de || 'Buchungsbestätigung — {{hotelName}}',
@@ -232,6 +235,9 @@ async function sendCancellationEmail(bookingId) {
   const lang = guest?.preferredLanguage || 'de';
   const template = await EmailTemplate.findOne({ tenantId: TENANT_ID, type: 'cancellation' });
   const vars = await buildVars(booking, guest, settings, property);
+  const greetingBlocks = template?.contentJson?.[lang] || template?.contentJson?.de || [];
+  const greetingBlock = Array.isArray(greetingBlocks) ? greetingBlocks.find(b => b?.type === 'text' && b?.content) : null;
+  vars.greetingText = greetingBlock?.content || '';
 
   const subject = replaceVars(
     template?.subject?.[lang] || template?.subject?.de || 'Stornierungsbestätigung — {{hotelName}}',
