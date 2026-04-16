@@ -64,25 +64,17 @@ async function buildVars(booking, guest, settings, property) {
 function buildReviewBody(v) {
   const accent = v.primaryColor || '#3d4fbc';
   const textColor = v.textColor || '#1a1f3c';
+  const greetingHtml = v.greetingText
+    ? v.greetingText.split('\n').filter(Boolean).map(line =>
+        '<p style="font-size:15px;color:' + textColor + ';line-height:1.65;margin:0 0 12px">' + line + '</p>'
+      ).join('')
+    : '<p style="font-size:15px;color:' + textColor + ';line-height:1.65;margin:0 0 20px">vielen Dank f&uuml;r Ihren Aufenthalt bei ' + (v.hotelName || '') + '! Wir w&uuml;rden uns sehr &uuml;ber eine Bewertung freuen.</p>';
 
   const reviewButton = v.reviewLink
     ? '<table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0"><tr><td align="center"><a href="' + v.reviewLink + '" style="display:inline-block;background:' + accent + ';color:#ffffff;padding:16px 40px;border-radius:10px;text-decoration:none;font-size:16px;font-weight:600;letter-spacing:0.3px">Bewertung abgeben &rarr;</a></td></tr></table>'
     : '';
 
-  if (v.greetingText) {
-    const lines = v.greetingText.split('\n').filter(Boolean);
-    const lastLine = lines.length > 1 ? lines.pop() : null;
-    const introHtml = lines.map(line =>
-      '<p style="font-size:15px;color:' + textColor + ';line-height:1.65;margin:0 0 12px">' + line + '</p>'
-    ).join('');
-    const closingHtml = lastLine
-      ? '<p style="font-size:15px;color:' + textColor + ';line-height:1.65;margin:0 0 12px">' + lastLine + '</p>'
-      : '';
-    return introHtml + reviewButton + closingHtml;
-  }
-
-  const fallback = '<p style="font-size:15px;color:' + textColor + ';line-height:1.65;margin:0 0 20px">vielen Dank f&uuml;r Ihren Aufenthalt bei ' + (v.hotelName || '') + '! Wir w&uuml;rden uns sehr &uuml;ber eine Bewertung freuen.</p>';
-  return fallback + reviewButton;
+  return greetingHtml + reviewButton;
 }
 
 function buildReviewText(v) {
