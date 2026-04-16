@@ -206,17 +206,18 @@ async function sendConfirmationEmail(bookingId, { overrideEmail, forceFormat } =
   console.log(`[ConfirmationEmail] Gesendet an ${to} (${booking.bookingNumber})${isTestMode ? ' [TEST]' : ''}`);
 }
 
-async function sendCancellationEmail(bookingId) {
+async function sendCancellationEmail(bookingId, { overrideEmail, forceFormat } = {}) {
   const ctx = await loadContext(bookingId);
   if (!ctx) return;
   const { booking, guest, settings, property } = ctx;
 
-  if (booking.communication?.cancellationSent) {
+  const isTestMode = !!overrideEmail;
+  if (!isTestMode && booking.communication?.cancellationSent) {
     console.log(`[CancellationEmail] Übersprungen (bereits gesendet): ${booking.bookingNumber}`);
     return;
   }
 
-  const to = await resolveRecipient(booking, guest);
+  const to = overrideEmail || await resolveRecipient(booking, guest);
   if (!to) {
     console.log(`[CancellationEmail] Keine Empfängeradresse: ${booking.bookingNumber}`);
     return;
@@ -233,15 +234,15 @@ async function sendCancellationEmail(bookingId) {
     template?.subject?.[lang] || template?.subject?.de || 'Stornierungsbestätigung — {{hotelName}}',
     vars
   );
-  const htmlTpl = template?.contentHtml?.[lang] || template?.contentHtml?.de || '';
-  const textTpl = template?.contentText?.[lang] || template?.contentText?.de || '';
-  const bodyHtml = replaceVars(htmlTpl || buildCancellationBody(vars), vars);
+  const bodyHtml = replaceVars(buildCancellationBody(vars), vars);
   const html = wrapHtml(bodyHtml, vars);
-  const text = replaceVars(textTpl || buildCancellationText(vars), vars);
+  const text = replaceVars(buildCancellationText(vars), vars);
 
-  await sendEmail({ tenantId: TENANT_ID, to, subject, html, text });
-  await Booking.updateOne({ _id: bookingId }, { $set: { 'communication.cancellationSent': true } });
-  console.log(`[CancellationEmail] Gesendet an ${to} (${booking.bookingNumber})`);
+  await sendEmail({ tenantId: TENANT_ID, to, subject, html, text, forceFormat });
+  if (!isTestMode) {
+    await Booking.updateOne({ _id: bookingId }, { $set: { 'communication.cancellationSent': true } });
+  }
+  console.log(`[CancellationEmail] Gesendet an ${to} (${booking.bookingNumber})${isTestMode ? ' [TEST]' : ''}`);
 }
 
 module.exports = {

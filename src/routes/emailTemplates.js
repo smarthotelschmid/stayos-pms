@@ -260,6 +260,18 @@ router.post('/:type/test-send', async (req, res) => {
       await sendDoorCodeEmail(booking._id, { overrideEmail: to, forceFormat: 'text' });
     }
 
+    if (type === 'cancellation') {
+      const { sendCancellationEmail } = require('../services/bookingEmailService');
+      const Booking = require('../models/Booking');
+      // Letzte stornierte Buchung als Referenz
+      const booking = await Booking.findOne({ tenantId: TENANT_ID, status: 'cancelled' }).sort({ cancelledAt: -1, updatedAt: -1 }).lean();
+      if (!booking) return res.status(404).json({ success: false, error: 'Keine stornierte Buchung gefunden' });
+      // HTML Version
+      await sendCancellationEmail(booking._id, { overrideEmail: to });
+      // Plain Text Version
+      await sendCancellationEmail(booking._id, { overrideEmail: to, forceFormat: 'text' });
+    }
+
     res.json({ success: true });
   } catch (err) {
     console.error('[EmailTemplate Test]', err.message);
