@@ -80,42 +80,17 @@ async function buildVars(booking, guest, settings, property) {
 
 function buildConfirmationBody(v) {
   const accent = v.primaryColor || '#3d4fbc';
-  // Greeting aus DB-Template oder Fallback
-  let greetingHtml;
-  if (v.greetingText) {
-    greetingHtml = v.greetingText.split('\n').filter(Boolean).map(line =>
-      '<p style="font-size:15px;color:#4a5067;line-height:1.65;margin:0 0 12px">' + line + '</p>'
-    ).join('');
-  } else {
-    greetingHtml = '<p style="font-size:22px;font-weight:700;color:#1a1f3c;margin:0 0 8px">Guten Tag ' + (v.guestFirstName || v.guestName || 'Gast') + ',</p>' +
-      '<p style="font-size:15px;color:#4a5067;line-height:1.65;margin:0 0 20px">vielen Dank f&uuml;r Ihre Buchung bei ' + v.hotelName + '! Wir freuen uns auf Ihren Besuch.</p>';
-  }
-  return greetingHtml + `
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6ff;border-radius:10px;margin:8px 0 24px"><tr>
-<td width="33%" style="padding:20px 12px;text-align:center;vertical-align:top">
-<div style="font-size:24px;margin-bottom:6px">&#128197;</div>
-<div style="font-size:10px;color:#8890a5;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px">Check-in</div>
-<div style="font-size:14px;font-weight:600;color:#1a1f3c">${v.checkIn}</div>
-<div style="font-size:12px;color:#8890a5">ab ${v.effectiveCheckInTime}</div>
-</td>
-<td width="33%" style="padding:20px 12px;text-align:center;vertical-align:top;border-left:1px solid #e8eaf5;border-right:1px solid #e8eaf5">
-<div style="font-size:24px;margin-bottom:6px">&#128228;</div>
-<div style="font-size:10px;color:#8890a5;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px">Check-out</div>
-<div style="font-size:14px;font-weight:600;color:#1a1f3c">${v.checkOut}</div>
-<div style="font-size:12px;color:#8890a5">bis ${v.effectiveCheckOutTime}</div>
-</td>
-<td width="33%" style="padding:20px 12px;text-align:center;vertical-align:top">
-<div style="font-size:24px;margin-bottom:6px">&#128716;</div>
-<div style="font-size:10px;color:#8890a5;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px">Zimmer</div>
-<div style="font-size:14px;font-weight:600;color:#1a1f3c">${v.roomName}</div>
-<div style="font-size:12px;color:#8890a5">${v.nights} N&auml;chte</div>
-</td>
-</tr></table>
+  const greetingHtml = v.greetingText
+    ? v.greetingText.split('\n').filter(Boolean).map(line =>
+        '<p style="font-size:15px;color:#4a5067;line-height:1.65;margin:0 0 12px">' + line + '</p>'
+      ).join('')
+    : '<p style="font-size:15px;color:#4a5067;line-height:1.65;margin:0 0 20px">vielen Dank f&uuml;r Ihre Buchung bei ' + v.hotelName + '! Wir freuen uns auf Ihren Besuch.</p>';
 
-<p style="font-size:13px;color:#8890a5;text-align:center;margin:0 0 8px">Buchungsnummer</p>
-<p style="font-size:18px;font-weight:700;color:${accent};text-align:center;letter-spacing:1px;margin:0 0 24px">${v.bookingNumber}</p>
+  const portalButton = v.guestPortalLink
+    ? '<table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0"><tr><td align="center"><a href="' + v.guestPortalLink + '" style="display:inline-block;background:' + accent + ';color:#ffffff;padding:16px 40px;border-radius:10px;text-decoration:none;font-size:16px;font-weight:600;letter-spacing:0.3px">Zum G&auml;steportal &rarr;</a></td></tr></table>'
+    : '';
 
-<p style="font-size:14px;color:#4a5067;line-height:1.65;margin:0 0 8px">Ihren pers&ouml;nlichen T&uuml;rcode senden wir Ihnen rechtzeitig vor Ihrer Anreise in einer separaten E-Mail.</p>`;
+  return greetingHtml + portalButton;
 }
 
 function buildConfirmationText(v) {
