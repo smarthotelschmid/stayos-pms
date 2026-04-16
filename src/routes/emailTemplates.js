@@ -281,8 +281,6 @@ router.post('/:type/test-send', async (req, res) => {
       if (!booking) return res.status(404).json({ success: false, error: 'Keine Buchung gefunden' });
       // HTML Version
       await sendReviewEmail(booking._id, { overrideEmail: to });
-      // Plain Text Version
-      await sendReviewEmail(booking._id, { overrideEmail: to, forceFormat: 'text' });
     }
 
     res.json({ success: true });
