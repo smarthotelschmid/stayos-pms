@@ -255,6 +255,22 @@ router.post('/:type/test-send', async (req, res) => {
       await sendEmail({ tenantId: TENANT_ID, to, subject: '[TEST Plain] Buchungsbestätigung', text, forceFormat: 'text' });
     }
 
+    if (type === 'doorcode') {
+      const { sendDoorCodeEmail } = require('../services/doorCodeEmailService');
+      const doorCodeBuildVars = require('../services/doorCodeEmailService');
+      const { wrapHtml } = require('../utils/emailLayout');
+      const Booking = require('../models/Booking');
+      // Finde eine Buchung mit stayosCode
+      const booking = await Booking.findOne({ tenantId: TENANT_ID, 'doorAccess.stayosCode': { $exists: true, $ne: null }, status: { $in: ['confirmed', 'checked-in'] } }).sort({ createdAt: -1 });
+      if (!booking) return res.status(404).json({ success: false, error: 'Keine Buchung mit Türcode gefunden' });
+      // HTML: Guard zurücksetzen, senden, Guard wieder setzen
+      await Booking.updateOne({ _id: booking._id }, { $set: { 'communication.doorCodeSent': false } });
+      await sendDoorCodeEmail(booking._id);
+      // Plain Text: nochmal mit forceFormat
+      await Booking.updateOne({ _id: booking._id }, { $set: { 'communication.doorCodeSent': false } });
+      await sendDoorCodeEmail(booking._id, { overrideEmail: to, forceFormat: 'text' });
+    }
+
     res.json({ success: true });
   } catch (err) {
     console.error('[EmailTemplate Test]', err.message);
