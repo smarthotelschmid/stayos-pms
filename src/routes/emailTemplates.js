@@ -188,7 +188,11 @@ router.get('/whatsapp/render', async (req, res) => {
     }
     text = replaceVars(text, vars);
 
-    res.json({ success: true, text });
+    // Gast-Telefon für WhatsApp URL
+    const phone = (ctx.guest?.phone || booking.contactPhone || '').replace(/[^0-9]/g, '');
+    const waUrl = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(text);
+
+    res.json({ success: true, text, waUrl, phone });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
