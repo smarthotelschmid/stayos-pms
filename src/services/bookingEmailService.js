@@ -164,17 +164,18 @@ async function loadContext(bookingId) {
   return { booking, guest, settings, property };
 }
 
-async function sendConfirmationEmail(bookingId) {
+async function sendConfirmationEmail(bookingId, { overrideEmail, forceFormat } = {}) {
   const ctx = await loadContext(bookingId);
   if (!ctx) return;
   const { booking, guest, settings, property } = ctx;
 
-  if (booking.communication?.confirmationSent) {
+  const isTestMode = !!overrideEmail;
+  if (!isTestMode && booking.communication?.confirmationSent) {
     console.log(`[ConfirmationEmail] Übersprungen (bereits gesendet): ${booking.bookingNumber}`);
     return;
   }
 
-  const to = await resolveRecipient(booking, guest);
+  const to = overrideEmail || await resolveRecipient(booking, guest);
   if (!to) {
     console.log(`[ConfirmationEmail] Keine Empfängeradresse: ${booking.bookingNumber}`);
     return;
@@ -195,9 +196,11 @@ async function sendConfirmationEmail(bookingId) {
   const html = wrapHtml(bodyHtml, vars);
   const text = replaceVars(buildConfirmationText(vars), vars);
 
-  await sendEmail({ tenantId: TENANT_ID, to, subject, html, text });
-  await Booking.updateOne({ _id: bookingId }, { $set: { 'communication.confirmationSent': true } });
-  console.log(`[ConfirmationEmail] Gesendet an ${to} (${booking.bookingNumber})`);
+  await sendEmail({ tenantId: TENANT_ID, to, subject, html, text, forceFormat });
+  if (!isTestMode) {
+    await Booking.updateOne({ _id: bookingId }, { $set: { 'communication.confirmationSent': true } });
+  }
+  console.log(`[ConfirmationEmail] Gesendet an ${to} (${booking.bookingNumber})${isTestMode ? ' [TEST]' : ''}`);
 }
 
 async function sendCancellationEmail(bookingId) {
