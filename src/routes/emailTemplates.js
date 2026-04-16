@@ -227,7 +227,7 @@ router.post('/:type', async (req, res) => {
 
 
 // Test-Send: rendert das komplette Backend-Template und sendet an BCC-Adresse
-router.post('/:type/test-send', requireAuth, async (req, res) => {
+router.post('/:type/test-send', async (req, res) => {
   try {
     const { type } = req.params;
     const { to } = req.body;
