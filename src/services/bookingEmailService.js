@@ -98,13 +98,9 @@ function buildConfirmationBody(v) {
 }
 
 function buildConfirmationText(v) {
-  const lines = (v.greetingText || '').split('\n').map(l => l.trim()).filter(Boolean);
-  const closingLine = lines.find(l => l.startsWith('Wir ') || l.startsWith('We ')) || '';
-  const introLines = lines.filter(l => l !== closingLine).join('\n');
-  const portalLine = v.guestPortalLink ? `Zum Gästeportal: ${v.guestPortalLink}` : '';
-  const intro = introLines || `Guten Tag ${v.guestFirstName || v.guestName || 'Gast'},\n\nvielen Dank für Ihre Buchung bei ${v.hotelName}! Wir freuen uns auf Ihren Besuch.`;
-  const closing = closingLine || `Wir freuen uns auf Ihren Besuch im ${v.hotelName}.`;
-  return [intro, portalLine, closing].filter(Boolean).join('\n\n');
+  const text = v.greetingText || 'Guten Tag ' + (v.guestFirstName || v.guestName || 'Gast') + ',\n\nvielen Dank für Ihre Buchung bei ' + v.hotelName + '!';
+  const portalLine = v.guestPortalLink ? 'Zum Gästeportal: ' + v.guestPortalLink : '';
+  return [text, portalLine].filter(Boolean).join('\n\n');
 }
 
 function buildCancellationBody(v) {
@@ -141,12 +137,9 @@ function buildCancellationBody(v) {
 }
 
 function buildCancellationText(v) {
-  const lines = (v.greetingText || '').split('\n').map(l => l.trim()).filter(Boolean);
-  const closingLine = lines.find(l => l.startsWith('Wir ') || l.startsWith('We ') || l.startsWith('Sollte')) || '';
-  const introLines = lines.filter(l => l !== closingLine).join('\n');
-  const intro = introLines || `Guten Tag ${v.guestFirstName || v.guestName || 'Gast'},\n\nhiermit bestätigen wir die Stornierung Ihrer Buchung bei ${v.hotelName}.`;
-  const closing = closingLine || `Wir würden uns freuen, Sie zu einem späteren Zeitpunkt bei uns begrüßen zu dürfen.`;
-  return [intro, closing].filter(Boolean).join('\n\n');
+  const text = v.greetingText || 'Guten Tag ' + (v.guestFirstName || v.guestName || 'Gast') + ',\n\nhiermit bestätigen wir die Stornierung Ihrer Buchung bei ' + v.hotelName + '.';
+  const portalLine = v.guestPortalLink ? 'Zum Gästeportal: ' + v.guestPortalLink : '';
+  return [text, portalLine].filter(Boolean).join('\n\n');
 }
 
 // ─── Send-Funktionen ─────────────────────────────────────────────────────────
