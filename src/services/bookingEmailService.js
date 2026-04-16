@@ -66,6 +66,8 @@ async function buildVars(booking, guest, settings, property) {
     effectiveCheckInTime: booking.earlyCheckIn || property?.checkInTime || settings?.checkInTime || '',
     effectiveCheckOutTime: booking.lateCheckOut || property?.checkOutTime || settings?.checkOutTime || '',
     primaryColor: property?.ci?.primaryColor || '',
+    textColor: property?.ci?.textColor || '',
+    fontFamily: property?.ci?.fontFamily || '',
     logoUrl: property?.ci?.logoUrl || property?.logoUrl || '',
     guestPortalUrl: buildGuestPortalUrl(booking.guestPortalToken, settings),
     // Alias — Legacy-Templates nutzen {{guestPortalLink}} (doorcode-Pfad)
@@ -80,11 +82,13 @@ async function buildVars(booking, guest, settings, property) {
 
 function buildConfirmationBody(v) {
   const accent = v.primaryColor || '#3d4fbc';
+  const textColor = v.textColor || '#1a1f3c';
+  const bodyColor = textColor;
   const greetingHtml = v.greetingText
     ? v.greetingText.split('\n').filter(Boolean).map(line =>
-        '<p style="font-size:15px;color:#4a5067;line-height:1.65;margin:0 0 12px">' + line + '</p>'
+        '<p style="font-size:15px;color:' + bodyColor + ';line-height:1.65;margin:0 0 12px">' + line + '</p>'
       ).join('')
-    : '<p style="font-size:15px;color:#4a5067;line-height:1.65;margin:0 0 20px">vielen Dank f&uuml;r Ihre Buchung bei ' + v.hotelName + '! Wir freuen uns auf Ihren Besuch.</p>';
+    : '<p style="font-size:15px;color:' + bodyColor + ';line-height:1.65;margin:0 0 20px">vielen Dank f&uuml;r Ihre Buchung bei ' + (v.hotelName || '') + '! Wir freuen uns auf Ihren Besuch.</p>';
 
   const portalButton = v.guestPortalLink
     ? '<table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0"><tr><td align="center"><a href="' + v.guestPortalLink + '" style="display:inline-block;background:' + accent + ';color:#ffffff;padding:16px 40px;border-radius:10px;text-decoration:none;font-size:16px;font-weight:600;letter-spacing:0.3px">Zum G&auml;steportal &rarr;</a></td></tr></table>'
