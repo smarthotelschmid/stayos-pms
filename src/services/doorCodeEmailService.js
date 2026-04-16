@@ -81,27 +81,18 @@ function buildFallbackBody(v) {
 function buildFallbackText(template, lang, vars = {}) {
   const blocks = template?.contentJson?.[lang] || template?.contentJson?.de || [];
   const firstText = blocks.find(b => b?.type === 'text' && b?.content);
-  const greeting = firstText?.content || '';
+  const greetingText = firstText?.content || '';
+
+  // Letzten Satz (Wir wünschen...) vom Begrüßungstext trennen
+  const textLines = greetingText.split('\n').map(l => l.trim()).filter(Boolean);
+  const closingLine = textLines.find(l => l.startsWith('Wir ') || l.startsWith('We ')) || '';
+  const introLines = textLines.filter(l => l !== closingLine).join('\n');
 
   const portalLine = vars.guestPortalLink
     ? `Zum Gästeportal: ${vars.guestPortalLink}`
     : '';
 
-  const details = [
-    vars.checkIn        ? `Check-in: ${vars.checkIn} ab ${vars.effectiveCheckInTime || '15:00'}` : '',
-    vars.checkOut       ? `Check-out: ${vars.checkOut} bis ${vars.effectiveCheckOutTime || '11:00'}` : '',
-    vars.roomName       ? `Zimmer: ${vars.roomName}` : '',
-    vars.doorCode       ? `Zugangscode: ${vars.doorCode}` : '',
-  ].filter(Boolean).join('\n');
-
-  const footer = [
-    vars.hotelName,
-    vars.hotelAddress,
-    vars.hotelPhone,
-    vars.hotelEmail,
-  ].filter(Boolean).join(' · ');
-
-  return [greeting, portalLine, details, footer].filter(Boolean).join('\n\n');
+  return [introLines, portalLine, closingLine].filter(Boolean).join('\n\n');
 }
 
 // Variablen im Template ersetzen
