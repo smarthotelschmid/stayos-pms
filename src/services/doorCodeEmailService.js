@@ -185,7 +185,12 @@ async function sendDoorCodeEmail(bookingId, { overrideEmail, forceFormat } = {})
   const settings = await Settings.findOne({ tenantId: TENANT_ID });
   const lang = guest?.preferredLanguage || 'de';
   const template = await EmailTemplate.findOne({ tenantId: TENANT_ID, type: 'doorcode' });
-  const property = booking.propertyId ? await Property.findOne({ _id: booking.propertyId, tenantId: TENANT_ID }).lean() : null;
+  let property = booking.propertyId
+    ? await Property.findOne({ _id: booking.propertyId, tenantId: TENANT_ID }).lean()
+    : null;
+  if (!property) {
+    property = await Property.findOne({ tenantId: TENANT_ID, active: { $ne: false } }).sort({ createdAt: 1 }).lean();
+  }
 
   const vars = await buildVars(booking, guest, settings, property);
 
