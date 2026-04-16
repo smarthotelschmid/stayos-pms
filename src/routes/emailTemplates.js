@@ -225,4 +225,29 @@ router.post('/:type', async (req, res) => {
   }
 });
 
+
+// Test-Send: rendert das komplette Backend-Template und sendet an BCC-Adresse
+router.post('/:type/test-send', requireAuth, async (req, res) => {
+  try {
+    const { type } = req.params;
+    const { to } = req.body;
+    if (!to) return res.status(400).json({ success: false, error: 'to fehlt' });
+
+    if (type === 'confirmation') {
+      const { sendConfirmationEmail } = require('../services/bookingEmailService');
+      const Booking = require('../models/Booking');
+      const booking = await Booking.findOne({ tenantId: TENANT_ID, status: { $in: ['confirmed', 'checked-in'] } }).sort({ createdAt: -1 }).lean();
+      if (!booking) return res.status(404).json({ success: false, error: 'Keine Buchung gefunden' });
+      await Booking.updateOne({ _id: booking._id }, { $set: { 'communication.confirmationSent': false } });
+      await sendConfirmationEmail(booking._id);
+      await Booking.updateOne({ _id: booking._id }, { $set: { 'communication.confirmationSent': true } });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[EmailTemplate Test]', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;
