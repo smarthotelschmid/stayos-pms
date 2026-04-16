@@ -78,16 +78,30 @@ function buildFallbackBody(v) {
 //      aus dem Visual Editor)
 // Gibt '' zurueck wenn Template leer ist; emailService strippt dann notfalls
 // das HTML als Text-Alternative. Kein hardcoded String.
-function buildFallbackText(template, lang) {
-  const subject = template?.subject?.[lang] || template?.subject?.de || '';
-  const blocks  = template?.contentJson?.[lang] || template?.contentJson?.de || [];
+function buildFallbackText(template, lang, vars = {}) {
+  const blocks = template?.contentJson?.[lang] || template?.contentJson?.de || [];
   const firstText = blocks.find(b => b?.type === 'text' && b?.content);
   const greeting = firstText?.content || '';
 
-  const parts = [];
-  if (subject)  parts.push(subject);
-  if (greeting) parts.push(greeting);
-  return parts.join('\n\n');
+  const portalLine = vars.guestPortalLink
+    ? `Zum Gästeportal: ${vars.guestPortalLink}`
+    : '';
+
+  const details = [
+    vars.checkIn        ? `Check-in: ${vars.checkIn} ab ${vars.effectiveCheckInTime || '15:00'}` : '',
+    vars.checkOut       ? `Check-out: ${vars.checkOut} bis ${vars.effectiveCheckOutTime || '11:00'}` : '',
+    vars.roomName       ? `Zimmer: ${vars.roomName}` : '',
+    vars.doorCode       ? `Zugangscode: ${vars.doorCode}` : '',
+  ].filter(Boolean).join('\n');
+
+  const footer = [
+    vars.hotelName,
+    vars.hotelAddress,
+    vars.hotelPhone,
+    vars.hotelEmail,
+  ].filter(Boolean).join(' · ');
+
+  return [greeting, portalLine, details, footer].filter(Boolean).join('\n\n');
 }
 
 // Variablen im Template ersetzen
@@ -202,7 +216,7 @@ async function sendDoorCodeEmail(bookingId, { overrideEmail, forceFormat } = {})
 
   // Plain Text: DB-Template zuerst, sonst aus subject + contentJson Block bauen
   let text = template?.contentText?.[lang] || template?.contentText?.de || '';
-  if (!text) text = buildFallbackText(template, lang);
+  if (!text) text = buildFallbackText(template, lang, vars);
   text = replaceVars(text, vars);
 
   await sendEmail({ tenantId: TENANT_ID, to, subject, html, text, forceFormat });
