@@ -109,32 +109,35 @@ function buildConfirmationText(v) {
 
 function buildCancellationBody(v) {
   const accent = v.primaryColor || '#3d4fbc';
-  return `
-<p style="font-size:22px;font-weight:700;color:#1a1f3c;margin:0 0 8px">Guten Tag ${v.guestFirstName || v.guestName || 'Gast'},</p>
-<p style="font-size:15px;color:#4a5067;line-height:1.65;margin:0 0 20px">hiermit best&auml;tigen wir die Stornierung Ihrer Buchung bei ${v.hotelName}.</p>
+  const textColor = v.textColor || '#1a1f3c';
+  const greetingHtml = v.greetingText
+    ? v.greetingText.split('\n').filter(Boolean).map(line =>
+        '<p style="font-size:15px;color:' + textColor + ';line-height:1.65;margin:0 0 12px">' + line + '</p>'
+      ).join('')
+    : '<p style="font-size:15px;color:' + textColor + ';line-height:1.65;margin:0 0 20px">hiermit best&auml;tigen wir die Stornierung Ihrer Buchung bei ' + (v.hotelName || '') + '.</p>';
 
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6ff;border-radius:10px;margin:8px 0 24px"><tr>
-<td width="33%" style="padding:20px 12px;text-align:center;vertical-align:top">
-<div style="font-size:24px;margin-bottom:6px">&#128197;</div>
-<div style="font-size:10px;color:#8890a5;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px">Check-in</div>
-<div style="font-size:14px;font-weight:600;color:#1a1f3c">${v.checkIn}</div>
-</td>
-<td width="33%" style="padding:20px 12px;text-align:center;vertical-align:top;border-left:1px solid #e8eaf5;border-right:1px solid #e8eaf5">
-<div style="font-size:24px;margin-bottom:6px">&#128228;</div>
-<div style="font-size:10px;color:#8890a5;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px">Check-out</div>
-<div style="font-size:14px;font-weight:600;color:#1a1f3c">${v.checkOut}</div>
-</td>
-<td width="33%" style="padding:20px 12px;text-align:center;vertical-align:top">
-<div style="font-size:24px;margin-bottom:6px">&#128716;</div>
-<div style="font-size:10px;color:#8890a5;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px">Zimmer</div>
-<div style="font-size:14px;font-weight:600;color:#1a1f3c">${v.roomName}</div>
-</td>
-</tr></table>
+  const kacheln = '<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6ff;border-radius:10px;margin:8px 0 24px"><tr>'
+    + '<td width="33%" style="padding:20px 12px;text-align:center;vertical-align:top">'
+    + '<div style="font-size:24px;margin-bottom:6px">&#128197;</div>'
+    + '<div style="font-size:10px;color:#8890a5;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px">Check-in</div>'
+    + '<div style="font-size:14px;font-weight:600;color:' + textColor + '">' + (v.checkIn || '') + '</div>'
+    + '</td>'
+    + '<td width="33%" style="padding:20px 12px;text-align:center;vertical-align:top;border-left:1px solid #e8eaf5;border-right:1px solid #e8eaf5">'
+    + '<div style="font-size:24px;margin-bottom:6px">&#128228;</div>'
+    + '<div style="font-size:10px;color:#8890a5;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px">Check-out</div>'
+    + '<div style="font-size:14px;font-weight:600;color:' + textColor + '">' + (v.checkOut || '') + '</div>'
+    + '</td>'
+    + '<td width="33%" style="padding:20px 12px;text-align:center;vertical-align:top">'
+    + '<div style="font-size:24px;margin-bottom:6px">&#128716;</div>'
+    + '<div style="font-size:10px;color:#8890a5;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px">Zimmer</div>'
+    + '<div style="font-size:14px;font-weight:600;color:' + textColor + '">' + (v.roomName || '') + '</div>'
+    + '</td>'
+    + '</tr></table>';
 
-<p style="font-size:13px;color:#8890a5;text-align:center;margin:0 0 8px">Buchungsnummer</p>
-<p style="font-size:18px;font-weight:700;color:${accent};text-align:center;letter-spacing:1px;margin:0 0 24px">${v.bookingNumber}</p>
+  const buchungsnr = '<p style="font-size:13px;color:#8890a5;text-align:center;margin:0 0 8px">Buchungsnummer</p>'
+    + '<p style="font-size:18px;font-weight:700;color:' + accent + ';text-align:center;letter-spacing:1px;margin:0 0 24px">' + (v.bookingNumber || '') + '</p>';
 
-<p style="font-size:14px;color:#4a5067;line-height:1.65;margin:0 0 8px">Sollte die Stornierung irrt&uuml;mlich erfolgt sein, melden Sie sich bitte umgehend bei uns. Wir w&uuml;rden uns freuen, Sie zu einem sp&auml;teren Zeitpunkt bei uns begr&uuml;&szlig;en zu d&uuml;rfen.</p>`;
+  return greetingHtml + kacheln + buchungsnr;
 }
 
 function buildCancellationText(v) {
