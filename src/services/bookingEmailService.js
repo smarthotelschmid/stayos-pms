@@ -112,28 +112,13 @@ function buildConfirmationBody(v) {
 }
 
 function buildConfirmationText(v) {
-  return [
-    `Guten Tag ${v.guestFirstName || v.guestName || 'Gast'},`,
-    ``,
-    `vielen Dank fuer Ihre Buchung bei ${v.hotelName}!`,
-    `Wir freuen uns auf Ihren Besuch.`,
-    ``,
-    `Ihre Buchung:`,
-    `* Check-in:  ${v.checkIn} ab ${v.effectiveCheckInTime}`,
-    `* Check-out: ${v.checkOut} bis ${v.effectiveCheckOutTime}`,
-    `* Zimmer:    ${v.roomName}`,
-    `* Naechte:   ${v.nights}`,
-    `* Nummer:    ${v.bookingNumber}`,
-    ``,
-    `Ihr Gastportal: ${v.guestPortalUrl}`,
-    ``,
-    `Adresse:`,
-    `${v.hotelName}`,
-    `${v.hotelAddress}`,
-    ``,
-    `Herzliche Gruesse`,
-    `${v.hotelName}`,
-  ].join('\n');
+  const lines = (v.greetingText || '').split('\n').map(l => l.trim()).filter(Boolean);
+  const closingLine = lines.find(l => l.startsWith('Wir ') || l.startsWith('We ')) || '';
+  const introLines = lines.filter(l => l !== closingLine).join('\n');
+  const portalLine = v.guestPortalLink ? `Zum Gästeportal: ${v.guestPortalLink}` : '';
+  const intro = introLines || `Guten Tag ${v.guestFirstName || v.guestName || 'Gast'},\n\nvielen Dank für Ihre Buchung bei ${v.hotelName}! Wir freuen uns auf Ihren Besuch.`;
+  const closing = closingLine || `Wir freuen uns auf Ihren Besuch im ${v.hotelName}.`;
+  return [intro, portalLine, closing].filter(Boolean).join('\n\n');
 }
 
 function buildCancellationBody(v) {
@@ -167,28 +152,12 @@ function buildCancellationBody(v) {
 }
 
 function buildCancellationText(v) {
-  return [
-    `Guten Tag ${v.guestFirstName || v.guestName || 'Gast'},`,
-    ``,
-    `hiermit bestaetigen wir die Stornierung Ihrer Buchung bei ${v.hotelName}.`,
-    ``,
-    `Stornierte Buchung:`,
-    `* Check-in:  ${v.checkIn}`,
-    `* Check-out: ${v.checkOut}`,
-    `* Zimmer:    ${v.roomName}`,
-    `* Nummer:    ${v.bookingNumber}`,
-    ``,
-    `Sollte die Stornierung irrtuemlich erfolgt sein, melden Sie sich bitte`,
-    `umgehend bei uns. Wir wuerden uns freuen, Sie zu einem spaeteren Zeitpunkt`,
-    `bei uns begruessen zu duerfen.`,
-    ``,
-    `Bei Fragen erreichen Sie uns unter:`,
-    `* Telefon: ${v.hotelPhone}`,
-    `* E-Mail:  ${v.hotelEmail}`,
-    ``,
-    `Herzliche Gruesse`,
-    `${v.hotelName}`,
-  ].join('\n');
+  const lines = (v.greetingText || '').split('\n').map(l => l.trim()).filter(Boolean);
+  const closingLine = lines.find(l => l.startsWith('Wir ') || l.startsWith('We ') || l.startsWith('Sollte')) || '';
+  const introLines = lines.filter(l => l !== closingLine).join('\n');
+  const intro = introLines || `Guten Tag ${v.guestFirstName || v.guestName || 'Gast'},\n\nhiermit bestätigen wir die Stornierung Ihrer Buchung bei ${v.hotelName}.`;
+  const closing = closingLine || `Wir würden uns freuen, Sie zu einem späteren Zeitpunkt bei uns begrüßen zu dürfen.`;
+  return [intro, closing].filter(Boolean).join('\n\n');
 }
 
 // ─── Send-Funktionen ─────────────────────────────────────────────────────────
