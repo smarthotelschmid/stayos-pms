@@ -265,7 +265,7 @@ router.post('/:type/test-send', async (req, res) => {
       if (!booking) return res.status(404).json({ success: false, error: 'Keine Buchung mit Türcode gefunden' });
       // HTML: Guard zurücksetzen, senden, Guard wieder setzen
       await Booking.updateOne({ _id: booking._id }, { $set: { 'communication.doorCodeSent': false } });
-      await sendDoorCodeEmail(booking._id);
+      await sendDoorCodeEmail(booking._id, { overrideEmail: to });
       // Plain Text: nochmal mit forceFormat
       await Booking.updateOne({ _id: booking._id }, { $set: { 'communication.doorCodeSent': false } });
       await sendDoorCodeEmail(booking._id, { overrideEmail: to, forceFormat: 'text' });
