@@ -45,7 +45,15 @@ const bookingSchema = new mongoose.Schema({
 
   // Firma & Rechnung
   companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company' },
-  invoiceRecipient: { type: String, enum: ['guest', 'company'], default: 'guest' },
+  invoiceRecipient: {
+    type: { type: String, enum: ['private', 'company'], default: 'private' },
+    companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company' },
+    companyName: String,
+    vatId: String,
+    viesVerified: { type: Boolean, default: false },
+    verifiedAt: Date,
+    address: { street: String, postalCode: String, city: String, country: String },
+  },
 
   // ── STATUS ────────────────────────────────────────────
   
@@ -229,6 +237,7 @@ const bookingSchema = new mongoose.Schema({
   checkInTokenExpiry: { type: Date },
   checkInCompleted: { type: Boolean, default: false },
   checkedInAt: { type: Date },
+  checkinMethod: { type: String, enum: ['portal', 'manual'], default: null },
   portalOpenedAt: { type: Date },
   portalOpenCount: { type: Number, default: 0 },
   checkedOutAt: { type: Date },

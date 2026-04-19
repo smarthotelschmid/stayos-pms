@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 
 // Gästeprofil — wird einmal angelegt und bei jeder Buchung wiederverwendet
 // So sehen wir ob jemand zum 3. Mal kommt und können ihn persönlich begrüßen
@@ -81,6 +82,17 @@ const guestSchema = new mongoose.Schema({
   // Wird beim Sync befuellt, index fuer schnelles Fallback-Matching.
   normNameKey:    { type: String, index: true },
 
+  // ── STAYOS PLATTFORM ─────────────────────────────────
+  stayosGuestId: { type: String, unique: true, sparse: true },
+  platformConsent: { type: Boolean, default: false },
+  platformConsentDate: { type: Date },
+  tenants: [{
+    tenantId: { type: String, required: true },
+    consent: { type: Boolean, default: true },
+    since: { type: Date, default: Date.now },
+    revokedAt: { type: Date },
+  }],
+
   // ── DSGVO / MARKETING ───────────────────────────────
   gdprConsent:      { type: Boolean, default: false },
   gdprConsentDate:  { type: Date },
@@ -88,6 +100,14 @@ const guestSchema = new mongoose.Schema({
   consentDate:      { type: Date },
 
 }, { timestamps: true });
+
+// STG-ID generieren wenn nicht vorhanden
+guestSchema.pre('save', function(next) {
+  if (!this.stayosGuestId) {
+    this.stayosGuestId = 'STG-' + crypto.randomBytes(3).toString('hex').toUpperCase();
+  }
+  next();
+});
 
 // Hilfsfunktion: Fake-E-Mail automatisch erkennen beim Speichern
 guestSchema.pre('save', function(next) {

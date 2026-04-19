@@ -159,7 +159,7 @@ async function syncBookings(source = 'cron') {
 
       const result = await Booking.findOneAndUpdate(
         { tenantId: TENANT_ID, beds24BookingId: b.id },
-        { $set: updateData, $setOnInsert: { bookingNumber, guestPortalToken: crypto.randomBytes(32).toString('hex'), 'checkInForm.completed': new Date(bookingData.checkIn) < FLOW_START } },
+        { $set: updateData, $setOnInsert: { bookingNumber, guestPortalToken: crypto.randomBytes(32).toString('hex'), guestPortalTokenExpiry: new Date(new Date(bookingData.checkOut).getTime() + 24 * 60 * 60 * 1000), 'checkInForm.completed': new Date(bookingData.checkIn) < FLOW_START } },
         { upsert: true, new: true, includeResultMetadata: true }
       );
 

@@ -103,7 +103,7 @@ router.get('/:token', async (req, res) => {
         checkIn: booking.checkIn,
         checkOut: booking.checkOut,
         nights,
-        doorCode: booking.doorAccess?.stayosCode || booking.doorAccess?.code || null,
+        doorCode: (booking.checkInCompleted || booking.checkInForm?.completed) ? (booking.doorAccess?.stayosCode || booking.doorAccess?.code || null) : null,
         status: booking.status,
         roomLockId: booking.doorAccess?.roomLockId || null,
         roomUnlockSupported: true,
@@ -259,6 +259,194 @@ router.patch('/:token/checkin-form', async (req, res) => {
     const updated = await Booking.findOne({ _id: booking._id, tenantId: TENANT_ID }).lean();
     res.json({ success: true, doorCode: updated.doorAccess?.stayosCode || updated.doorAccess?.code || null });
   } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+
+// ─── Check-in Flow ───────────────────────────────────────────────────────────
+
+// POST /api/portal/:token/lookup — Email-Lookup tenant-übergreifend
+router.post('/:token/lookup', async (req, res) => {
+  try {
+    const booking = await Booking.findOne({ tenantId: TENANT_ID, guestPortalToken: req.params.token });
+    if (!booking) return res.json({ success: false, error: 'not_found' });
+
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ success: false, error: 'email fehlt' });
+
+    const Guest = require('../models/Guest');
+    const guest = await Guest.findOne({ email, status: { $ne: 'anonymized' } }).select(
+      'firstName lastName birthDate nationality documentNumber phone address preferredLanguage platformConsent'
+    ).lean();
+
+    if (!guest || !guest.platformConsent) {
+      return res.json({ success: true, found: false });
+    }
+
+    res.json({
+      success: true,
+      found: true,
+      data: {
+        firstName: guest.firstName,
+        lastName: guest.lastName,
+        dateOfBirth: guest.birthDate,
+        nationality: guest.nationality,
+        documentNumber: guest.documentNumber,
+        phone: guest.phone,
+        street: guest.address?.street || '',
+        postalCode: guest.address?.zip || '',
+        city: guest.address?.city || '',
+        country: guest.address?.country || '',
+        language: guest.preferredLanguage || 'de',
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/portal/:token/checkin — Check-in abschließen
+router.post('/:token/checkin', async (req, res) => {
+  try {
+    const booking = await Booking.findOne({ tenantId: TENANT_ID, guestPortalToken: req.params.token });
+    if (!booking) return res.json({ success: false, error: 'not_found' });
+
+    // Token abgelaufen?
+    if (booking.guestPortalTokenExpiry && new Date() > booking.guestPortalTokenExpiry) {
+      return res.status(410).json({ success: false, error: 'expired' });
+    }
+
+    // Bereits eingecheckt?
+    if (booking.checkInCompleted || booking.checkInForm?.completed) {
+      return res.json({
+        success: true,
+        alreadyCompleted: true,
+        doorCode: booking.doorAccess?.stayosCode || null,
+      });
+    }
+
+    const { guestData, invoiceRecipient, platformConsent } = req.body;
+    if (!guestData?.firstName || !guestData?.lastName || !guestData?.email) {
+      return res.status(400).json({ success: false, error: 'Pflichtfelder fehlen' });
+    }
+
+    const Guest = require('../models/Guest');
+
+    // Guest erstellen oder aktualisieren
+    let guest = await Guest.findOne({ email: guestData.email, status: { $ne: 'anonymized' } });
+
+    if (guest) {
+      guest.firstName = guestData.firstName;
+      guest.lastName = guestData.lastName;
+      if (guestData.phone) guest.phone = guestData.phone;
+      if (guestData.nationality) guest.nationality = guestData.nationality;
+      if (guestData.documentNumber) guest.documentNumber = guestData.documentNumber;
+      if (guestData.dateOfBirth) guest.birthDate = guestData.dateOfBirth;
+      if (guestData.language) guest.preferredLanguage = guestData.language;
+      if (platformConsent !== undefined) guest.platformConsent = platformConsent;
+      if (platformConsent) guest.platformConsentDate = new Date();
+      if (guestData.street) {
+        guest.address = {
+          street: guestData.street,
+          zip: guestData.postalCode,
+          city: guestData.city,
+          country: guestData.country,
+        };
+      }
+      // Tenant hinzufügen wenn nicht vorhanden
+      if (!guest.tenants) guest.tenants = [];
+      const hasTenant = guest.tenants.some(t => String(t.tenantId) === TENANT_ID);
+      if (!hasTenant) {
+        guest.tenants.push({ tenantId: TENANT_ID, consent: true, since: new Date() });
+      }
+    } else {
+      guest = new Guest({
+        tenantId: TENANT_ID,
+        firstName: guestData.firstName,
+        lastName: guestData.lastName,
+        email: guestData.email,
+        phone: guestData.phone,
+        birthDate: guestData.dateOfBirth,
+        nationality: guestData.nationality,
+        documentNumber: guestData.documentNumber,
+        preferredLanguage: guestData.language || 'de',
+        address: {
+          street: guestData.street,
+          zip: guestData.postalCode,
+          city: guestData.city,
+          country: guestData.country,
+        },
+        platformConsent: platformConsent || false,
+        platformConsentDate: platformConsent ? new Date() : null,
+        gdprConsent: true,
+        gdprConsentDate: new Date(),
+        tenants: [{ tenantId: TENANT_ID, consent: true, since: new Date() }],
+      });
+    }
+    await guest.save();
+
+    // Firma verarbeiten
+    if (invoiceRecipient?.type === 'company') {
+      const Company = require('../models/Company');
+      let company = invoiceRecipient.vatId
+        ? await Company.findOne({ tenantId: TENANT_ID, vatId: invoiceRecipient.vatId })
+        : null;
+      if (!company) {
+        company = new Company({
+          tenantId: TENANT_ID,
+          name: invoiceRecipient.companyName,
+          vatId: invoiceRecipient.vatId || '',
+          address: invoiceRecipient.address,
+          viesVerified: invoiceRecipient.viesVerified || false,
+        });
+        await company.save();
+      }
+      booking.invoiceRecipient = {
+        type: 'company',
+        companyId: company._id,
+        companyName: company.name,
+        vatId: company.vatId,
+        address: company.address,
+        viesVerified: company.viesVerified,
+        verifiedAt: new Date(),
+      };
+    } else {
+      booking.invoiceRecipient = { type: 'private' };
+    }
+
+    // Booking abschließen
+    booking.guestId = guest._id;
+    booking.checkInCompleted = true;
+    booking.checkedInAt = new Date();
+    booking.checkinMethod = 'portal';
+    booking.checkInForm = {
+      completed: true,
+      completedAt: new Date(),
+      street: guestData.street,
+      zip: guestData.postalCode,
+      city: guestData.city,
+      country: guestData.country,
+      nationality: guestData.nationality,
+      documentNumber: guestData.documentNumber,
+      isBusiness: invoiceRecipient?.type === 'company',
+      companyName: invoiceRecipient?.companyName || '',
+      companyUid: invoiceRecipient?.vatId || '',
+    };
+    await booking.save();
+
+    // Guest bookings Array aktualisieren
+    await Guest.updateOne({ _id: guest._id }, { $addToSet: { bookings: booking._id } });
+
+    res.json({
+      success: true,
+      doorCode: booking.doorAccess?.stayosCode || null,
+      codeValidFrom: booking.checkIn,
+      codeValidUntil: booking.checkOut,
+      guestName: guest.firstName + ' ' + guest.lastName,
+    });
+  } catch (err) {
+    console.error('[Portal Checkin]', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
