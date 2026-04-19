@@ -276,10 +276,12 @@ router.post('/:token/lookup', async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ success: false, error: 'email fehlt' });
 
-    const Guest = require('../models/Guest');
-    const guest = await Guest.findOne({ email, status: { $ne: 'anonymized' } }).select(
-      'firstName lastName birthDate nationality documentNumber phone address preferredLanguage platformConsent'
-    ).lean();
+    // Cross-tenant lookup (Doctolib-Prinzip) — raw collection to bypass tenantId plugin
+    const guestCol = require('mongoose').connection.db.collection('guests');
+    const guest = await guestCol.findOne(
+      { email, status: { $ne: 'anonymized' } },
+      { projection: { firstName: 1, lastName: 1, birthDate: 1, nationality: 1, documentNumber: 1, phone: 1, address: 1, preferredLanguage: 1, platformConsent: 1 } }
+    );
 
     if (!guest || !guest.platformConsent) {
       return res.json({ success: true, found: false });
@@ -333,22 +335,29 @@ router.post('/:token/checkin', async (req, res) => {
     }
 
     const Guest = require('../models/Guest');
+    const mongoose = require('mongoose');
+    const guestCol = mongoose.connection.db.collection('guests');
 
-    // Guest erstellen oder aktualisieren
-    let guest = await Guest.findOne({ email: guestData.email, status: { $ne: 'anonymized' } });
+    // Cross-tenant lookup (Doctolib-Prinzip)
+    const existingGuest = await guestCol.findOne({ email: guestData.email, status: { $ne: 'anonymized' } });
+    let guestId;
 
-    if (guest) {
-      guest.firstName = guestData.firstName;
-      guest.lastName = guestData.lastName;
-      if (guestData.phone) guest.phone = guestData.phone;
-      if (guestData.nationality) guest.nationality = guestData.nationality;
-      if (guestData.documentNumber) guest.documentNumber = guestData.documentNumber;
-      if (guestData.dateOfBirth) guest.birthDate = guestData.dateOfBirth;
-      if (guestData.language) guest.preferredLanguage = guestData.language;
-      if (platformConsent !== undefined) guest.platformConsent = platformConsent;
-      if (platformConsent) guest.platformConsentDate = new Date();
+    if (existingGuest) {
+      // Bestehenden Gast updaten via raw collection (bypassed tenantId plugin)
+      const updateFields = {
+        firstName: guestData.firstName,
+        lastName: guestData.lastName,
+        updatedAt: new Date(),
+      };
+      if (guestData.phone) updateFields.phone = guestData.phone;
+      if (guestData.nationality) updateFields.nationality = guestData.nationality;
+      if (guestData.documentNumber) updateFields.documentNumber = guestData.documentNumber;
+      if (guestData.dateOfBirth) updateFields.birthDate = new Date(guestData.dateOfBirth);
+      if (guestData.language) updateFields.preferredLanguage = guestData.language;
+      if (platformConsent !== undefined) updateFields.platformConsent = platformConsent;
+      if (platformConsent) updateFields.platformConsentDate = new Date();
       if (guestData.street) {
-        guest.address = {
+        updateFields.address = {
           street: guestData.street,
           zip: guestData.postalCode,
           city: guestData.city,
@@ -356,19 +365,26 @@ router.post('/:token/checkin', async (req, res) => {
         };
       }
       // Tenant hinzufügen wenn nicht vorhanden
-      if (!guest.tenants) guest.tenants = [];
-      const hasTenant = guest.tenants.some(t => String(t.tenantId) === TENANT_ID);
-      if (!hasTenant) {
-        guest.tenants.push({ tenantId: TENANT_ID, consent: true, since: new Date() });
+      const hasTenant = (existingGuest.tenants || []).some(t => String(t.tenantId) === TENANT_ID);
+      if (hasTenant) {
+        await guestCol.updateOne({ _id: existingGuest._id }, { $set: updateFields });
+      } else {
+        await guestCol.updateOne({ _id: existingGuest._id }, {
+          $set: updateFields,
+          $push: { tenants: { tenantId: TENANT_ID, consent: true, since: new Date() } },
+        });
       }
+      guestId = existingGuest._id;
     } else {
-      guest = new Guest({
+      // Neuen Gast erstellen via Mongoose (braucht tenantId)
+      const crypto = require('crypto');
+      const guest = new Guest({
         tenantId: TENANT_ID,
         firstName: guestData.firstName,
         lastName: guestData.lastName,
         email: guestData.email,
         phone: guestData.phone,
-        birthDate: guestData.dateOfBirth,
+        birthDate: guestData.dateOfBirth ? new Date(guestData.dateOfBirth) : null,
         nationality: guestData.nationality,
         documentNumber: guestData.documentNumber,
         preferredLanguage: guestData.language || 'de',
@@ -384,8 +400,9 @@ router.post('/:token/checkin', async (req, res) => {
         gdprConsentDate: new Date(),
         tenants: [{ tenantId: TENANT_ID, consent: true, since: new Date() }],
       });
+      await guest.save();
+      guestId = guest._id;
     }
-    await guest.save();
 
     // Firma verarbeiten
     if (invoiceRecipient?.type === 'company') {
@@ -417,7 +434,7 @@ router.post('/:token/checkin', async (req, res) => {
     }
 
     // Booking abschließen
-    booking.guestId = guest._id;
+    booking.guestId = guestId;
     booking.checkInCompleted = true;
     booking.checkedInAt = new Date();
     booking.checkinMethod = 'portal';
@@ -437,14 +454,14 @@ router.post('/:token/checkin', async (req, res) => {
     await booking.save();
 
     // Guest bookings Array aktualisieren
-    await Guest.updateOne({ _id: guest._id }, { $addToSet: { bookings: booking._id } });
+    await guestCol.updateOne({ _id: guestId }, { $addToSet: { bookings: booking._id } });
 
     res.json({
       success: true,
       doorCode: booking.doorAccess?.stayosCode || null,
       codeValidFrom: booking.checkIn,
       codeValidUntil: booking.checkOut,
-      guestName: guest.firstName + ' ' + guest.lastName,
+      guestName: guestData.firstName + ' ' + guestData.lastName,
     });
   } catch (err) {
     console.error('[Portal Checkin]', err.message);
