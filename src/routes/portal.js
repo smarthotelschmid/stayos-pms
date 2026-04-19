@@ -75,7 +75,7 @@ router.get('/:token', async (req, res) => {
     // Portal-Template laden (strukturierte Inhalte: welcomeText, checkInHint, houseRules)
     const EmailTemplate = require('../models/EmailTemplate');
     const Guest = require('../models/Guest');
-    const guest = booking.guestId ? await Guest.findOne({ _id: booking.guestId, tenantId: TENANT_ID }, 'preferredLanguage').lean() : null;
+    const guest = booking.guestId ? await Guest.findOne({ _id: booking.guestId, tenantId: TENANT_ID }, 'preferredLanguage email').lean() : null;
     const lang = (guest?.preferredLanguage === 'en') ? 'en' : 'de';
     const portalTpl = await EmailTemplate.findOne({ tenantId: TENANT_ID, type: 'portal' }).lean();
     const portalData = portalTpl?.data?.[lang] || portalTpl?.data?.de || {};
@@ -99,6 +99,8 @@ router.get('/:token', async (req, res) => {
         bookingNumber: booking.bookingNumber,
         guestName: booking.guestName,
         guestFirstName,
+        guestEmail: booking.contactEmail || (guest?.email) || null,
+        guestEmailIsFake: !!(booking.contactEmail && ["@guest.booking.com","@m.airbnb.com","@airbnb.com","@guest.expedia.com"].some(p => (booking.contactEmail || "").toLowerCase().includes(p))),
         roomName: booking.roomName,
         checkIn: booking.checkIn,
         checkOut: booking.checkOut,
