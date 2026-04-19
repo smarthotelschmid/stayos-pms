@@ -127,7 +127,8 @@ router.get('/:token', async (req, res) => {
         ci: (settings?.logoUrl || property?.ci)
           ? { ...(property?.ci || {}), logoUrl: settings?.logoUrl || property?.ci?.logoUrl || property?.logoUrl || '' }
           : null,
-        checkInFormCompleted: booking.checkInForm?.completed === true || new Date(booking.checkIn) < new Date('2026-04-19T00:00:00+02:00'),
+        checkInFormCompleted: booking.checkInForm?.completed === true || booking.checkInCompleted === true,
+        checkInCompleted: booking.checkInCompleted === true,
       },
     });
   } catch (err) {
