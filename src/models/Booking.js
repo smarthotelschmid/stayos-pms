@@ -249,6 +249,7 @@ const bookingSchema = new mongoose.Schema({
     street: String, streetNo: String, zip: String, city: String, country: String,
     isBusiness: Boolean, companyName: String, companyUid: String,
     documentType: String, nationality: String, documentNumber: String,
+    birthDate: String, passportExpiry: String, cityOfBirth: String,
   },
 
   // Kontaktdaten (kann von Gast-Email abweichen, z.B. Firmen-Email)
