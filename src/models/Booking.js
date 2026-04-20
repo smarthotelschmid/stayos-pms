@@ -240,6 +240,8 @@ const bookingSchema = new mongoose.Schema({
     ageAtCheckin: { type: Number },
   }],
 
+  persons: { type: Number, default: 1 },
+
   // Self Check-in
   checkInToken: { type: String },
   checkInTokenExpiry: { type: Date },
@@ -249,6 +251,8 @@ const bookingSchema = new mongoose.Schema({
   portalOpenedAt: { type: Date },
   portalOpenCount: { type: Number, default: 0 },
   checkedOutAt: { type: Date },
+
+  persons: { type: Number, default: 1 },
 
   // Self Check-in Formular (vom Gästeportal)
   checkInForm: {
