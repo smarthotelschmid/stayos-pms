@@ -502,4 +502,21 @@ router.post('/:token/checkin', async (req, res) => {
   }
 });
 
+
+// POST /api/portal/:token/whatsapp-consent
+router.post('/:token/whatsapp-consent', async (req, res) => {
+  try {
+    const booking = await Booking.findOne({ tenantId: TENANT_ID, guestPortalToken: req.params.token });
+    if (!booking || !booking.guestId) return res.status(404).json({ error: 'Not found' });
+    const mongoose = require('mongoose');
+    await mongoose.connection.db.collection('guests').updateOne(
+      { _id: booking.guestId },
+      { $set: { whatsappConsent: true, whatsappConsentDate: new Date() } }
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
