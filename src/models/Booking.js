@@ -252,6 +252,17 @@ const bookingSchema = new mongoose.Schema({
     birthDate: String, passportExpiry: String, cityOfBirth: String,
   },
 
+  // Consent-Daten
+  consentData: {
+    consentPlatformProfile: { type: Boolean },
+    consentPlatformProfileText: { type: String },
+    consentPlatformProfileTimestamp: { type: Date },
+    meldezettelConfirmation: { type: Boolean },
+    meldezettelConfirmationTimestamp: { type: Date },
+    meldezettelConfirmationText: { type: String },
+    ipAddress: { type: String },
+  },
+
   // Kontaktdaten (kann von Gast-Email abweichen, z.B. Firmen-Email)
   contactEmail: { type: String },
   contactPhone: { type: String },

@@ -473,6 +473,12 @@ router.post('/:token/checkin', async (req, res) => {
     booking.checkInCompleted = true;
     booking.checkedInAt = new Date();
     booking.checkinMethod = 'portal';
+    if (req.body.consentData) {
+      booking.consentData = {
+        ...req.body.consentData,
+        ipAddress: req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null,
+      };
+    }
     booking.checkInForm = {
       completed: true,
       completedAt: new Date(),
