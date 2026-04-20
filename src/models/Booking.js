@@ -246,7 +246,7 @@ const bookingSchema = new mongoose.Schema({
   checkInForm: {
     completed: { type: Boolean, default: false },
     completedAt: { type: Date },
-    street: String, zip: String, city: String, country: String,
+    street: String, streetNo: String, zip: String, city: String, country: String,
     isBusiness: Boolean, companyName: String, companyUid: String,
     documentType: String, nationality: String, documentNumber: String,
   },
