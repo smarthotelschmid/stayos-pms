@@ -83,6 +83,16 @@ const guestSchema = new mongoose.Schema({
   // Wird beim Sync befuellt, index fuer schnelles Fallback-Matching.
   normNameKey:    { type: String, index: true },
 
+  // ── MITREISENDE ──────────────────────────────────────
+  primaryGuestId: { type: mongoose.Schema.Types.ObjectId, ref: 'Guest', default: null },
+  relationship: { type: String, enum: ['family_member', null], default: null },
+  companions: [{
+    guestId: { type: mongoose.Schema.Types.ObjectId, ref: 'Guest' },
+    addedAt: { type: Date, default: Date.now },
+    addedViaBookingId: { type: mongoose.Schema.Types.ObjectId, ref: 'Booking' },
+  }],
+  isIndependent: { type: Boolean, default: true },
+
   // ── STAYOS PLATTFORM ─────────────────────────────────
   stayosGuestId: { type: String, unique: true, sparse: true },
   platformConsent: { type: Boolean, default: false },

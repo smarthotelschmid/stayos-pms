@@ -131,6 +131,7 @@ router.get('/:token', async (req, res) => {
           : null,
         checkInFormCompleted: booking.checkInForm?.completed === true || booking.checkInCompleted === true,
         checkInCompleted: booking.checkInCompleted === true,
+        persons: booking.persons || 1,
         legalPrivacyUrl: settings?.legal?.privacyUrl || null,
         legalImprintUrl: settings?.legal?.imprintUrl || null,
         isTest: booking.isTest === true,
@@ -514,5 +515,67 @@ router.post('/:token/checkin', async (req, res) => {
   }
 });
 
+
+
+// POST /api/portal/:token/checkin-companions
+router.post('/:token/checkin-companions', async (req, res) => {
+  try {
+    const booking = await Booking.findOne({ tenantId: TENANT_ID, guestPortalToken: req.params.token });
+    if (!booking) return res.status(404).json({ error: 'Not found' });
+
+    const { companions } = req.body;
+    if (!companions || !Array.isArray(companions)) return res.status(400).json({ error: 'companions required' });
+
+    const Guest = require('../models/Guest');
+    const crypto = require('crypto');
+    const mongoose = require('mongoose');
+    const guestCol = mongoose.connection.db.collection('guests');
+    const companionDocs = [];
+
+    for (const c of companions) {
+      const dob = c.dateOfBirth ? new Date(c.dateOfBirth) : null;
+      const checkInDate = new Date(booking.checkIn);
+      const ageAtCheckin = dob ? Math.floor((checkInDate - dob) / (365.25 * 24 * 60 * 60 * 1000)) : null;
+
+      const stgCode = crypto.randomBytes(3).toString('hex').toUpperCase();
+      const companion = new Guest({
+        tenantId: TENANT_ID,
+        firstName: c.firstName,
+        lastName: c.lastName,
+        birthDate: dob,
+        stayosGuestId: 'STG-' + stgCode,
+        primaryGuestId: booking.guestId,
+        relationship: 'family_member',
+        isIndependent: false,
+        platformConsent: false,
+        gdprConsent: true,
+        gdprConsentDate: new Date(),
+        tenants: [{ tenantId: TENANT_ID, consent: false, since: new Date() }],
+      });
+      await companion.save();
+
+      companionDocs.push({
+        guestId: companion._id,
+        isCityTaxExempt: ageAtCheckin !== null && ageAtCheckin < 14,
+        ageAtCheckin,
+      });
+
+      // Link companion to primary guest
+      await guestCol.updateOne(
+        { _id: booking.guestId },
+        { $push: { companions: { guestId: companion._id, addedAt: new Date(), addedViaBookingId: booking._id } } }
+      );
+    }
+
+    booking.companions = companionDocs;
+    booking.primaryGuestId = booking.guestId;
+    await booking.save();
+
+    res.json({ success: true, count: companionDocs.length });
+  } catch (err) {
+    console.error('[Portal Companions]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 module.exports = router;

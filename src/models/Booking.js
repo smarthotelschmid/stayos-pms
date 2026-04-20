@@ -232,6 +232,14 @@ const bookingSchema = new mongoose.Schema({
   // Test-Buchung für Template-Preview im Email-Editor
   isTest: { type: Boolean, default: false },
 
+  // Mitreisende
+  primaryGuestId: { type: mongoose.Schema.Types.ObjectId, ref: 'Guest' },
+  companions: [{
+    guestId: { type: mongoose.Schema.Types.ObjectId, ref: 'Guest' },
+    isCityTaxExempt: { type: Boolean },
+    ageAtCheckin: { type: Number },
+  }],
+
   // Self Check-in
   checkInToken: { type: String },
   checkInTokenExpiry: { type: Date },
