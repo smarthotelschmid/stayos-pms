@@ -293,6 +293,7 @@ router.post('/:token/lookup', async (req, res) => {
     res.json({
       success: true,
       found: true,
+      platformConsent: guest.platformConsent,
       data: {
         firstName: guest.firstName,
         lastName: guest.lastName,
@@ -347,11 +348,8 @@ router.post('/:token/checkin', async (req, res) => {
 
     if (existingGuest) {
       // Bestehenden Gast updaten via raw collection (bypassed tenantId plugin)
-      const updateFields = {
-        firstName: guestData.firstName,
-        lastName: guestData.lastName,
-        updatedAt: new Date(),
-      };
+      // firstName + lastName nie überschreiben bei bestehendem Profil
+      const updateFields = { updatedAt: new Date() };
       if (guestData.phone) updateFields.phone = guestData.phone;
       if (guestData.nationality) updateFields.nationality = guestData.nationality;
       if (guestData.documentNumber) updateFields.documentNumber = guestData.documentNumber;
@@ -359,6 +357,26 @@ router.post('/:token/checkin', async (req, res) => {
       if (guestData.language) updateFields.preferredLanguage = guestData.language;
       if (platformConsent !== undefined) updateFields.platformConsent = platformConsent;
       if (platformConsent) updateFields.platformConsentDate = new Date();
+
+      // Änderungen loggen
+      const trackFields = { phone: 'phone', nationality: 'nationality', documentNumber: 'documentNumber' };
+      const addressFields = { street: 'address.street', streetNo: 'address.streetNo', postalCode: 'address.zip', city: 'address.city', country: 'address.country' };
+      const historyEntries = [];
+      for (const [formKey, dbKey] of Object.entries(trackFields)) {
+        const newVal = guestData[formKey];
+        const oldVal = existingGuest[formKey];
+        if (newVal && String(newVal) !== String(oldVal || '')) {
+          historyEntries.push({ modifiedAt: new Date(), modifiedBy: 'self', modifiedField: formKey, oldValue: String(oldVal || ''), newValue: String(newVal), reason: 'checkin_update' });
+        }
+      }
+      for (const [formKey, dbPath] of Object.entries(addressFields)) {
+        const newVal = guestData[formKey];
+        const parts = dbPath.split('.');
+        const oldVal = parts.length === 2 ? (existingGuest[parts[0]] || {})[parts[1]] : existingGuest[parts[0]];
+        if (newVal && String(newVal) !== String(oldVal || '')) {
+          historyEntries.push({ modifiedAt: new Date(), modifiedBy: 'self', modifiedField: dbPath, oldValue: String(oldVal || ''), newValue: String(newVal), reason: 'checkin_update' });
+        }
+      }
       if (guestData.street) {
         updateFields.address = {
           street: guestData.street,
@@ -371,11 +389,11 @@ router.post('/:token/checkin', async (req, res) => {
       // Tenant hinzufügen wenn nicht vorhanden
       const hasTenant = (existingGuest.tenants || []).some(t => String(t.tenantId) === TENANT_ID);
       if (hasTenant) {
-        await guestCol.updateOne({ _id: existingGuest._id }, { $set: updateFields });
+        await guestCol.updateOne({ _id: existingGuest._id }, { $set: updateFields, ...(historyEntries.length ? { $push: { modificationHistory: { $each: historyEntries } } } : {}) });
       } else {
         await guestCol.updateOne({ _id: existingGuest._id }, {
           $set: updateFields,
-          $push: { tenants: { tenantId: TENANT_ID, consent: true, since: new Date() } },
+          $push: { tenants: { tenantId: TENANT_ID, consent: true, since: new Date() }, ...(historyEntries.length ? { modificationHistory: { $each: historyEntries } } : {}) },
         });
       }
       guestId = existingGuest._id;

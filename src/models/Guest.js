@@ -93,6 +93,17 @@ const guestSchema = new mongoose.Schema({
     revokedAt: { type: Date },
   }],
 
+  // ── ÄNDERUNGSHISTORIE ────────────────────────────────
+  modificationHistory: [{
+    modifiedAt: { type: Date, default: Date.now },
+    modifiedBy: { type: String },
+    modifiedField: { type: String },
+    oldValue: { type: String },
+    newValue: { type: String },
+    reason: { type: String },
+    ticketId: { type: String },
+  }],
+
   // ── DSGVO / MARKETING ───────────────────────────────
   gdprConsent:      { type: Boolean, default: false },
   gdprConsentDate:  { type: Date },
