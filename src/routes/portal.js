@@ -283,7 +283,7 @@ router.post('/:token/lookup', async (req, res) => {
     const guestCol = require('mongoose').connection.db.collection('guests');
     const guest = await guestCol.findOne(
       { email, status: { $ne: 'anonymized' } },
-      { projection: { firstName: 1, lastName: 1, birthDate: 1, nationality: 1, documentNumber: 1, phone: 1, address: 1, preferredLanguage: 1, platformConsent: 1 } }
+      { projection: { firstName: 1, lastName: 1, birthDate: 1, nationality: 1, documentNumber: 1, phone: 1, address: 1, preferredLanguage: 1, platformConsent: 1, cityOfBirth: 1, documentType: 1, passportExpiry: 1 } }
     );
 
     if (!guest || !guest.platformConsent) {
@@ -306,6 +306,10 @@ router.post('/:token/lookup', async (req, res) => {
         city: guest.address?.city || '',
         country: guest.address?.country || '',
         language: guest.preferredLanguage || 'de',
+        cityOfBirth: guest.cityOfBirth || '',
+        documentType: guest.documentType || 'id_card',
+        passportExpiry: guest.passportExpiry || null,
+        streetNo: guest.address?.streetNo || '',
       },
     });
   } catch (err) {
