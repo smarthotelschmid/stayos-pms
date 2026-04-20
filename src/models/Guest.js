@@ -109,8 +109,6 @@ const guestSchema = new mongoose.Schema({
   gdprConsent:      { type: Boolean, default: false },
   gdprConsentDate:  { type: Date },
   marketingConsent: { type: Boolean, default: false },
-  whatsappConsent: { type: Boolean, default: false },
-  whatsappConsentDate: { type: Date },
   consentDate:      { type: Date },
 
 }, { timestamps: true });
