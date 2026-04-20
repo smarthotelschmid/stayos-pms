@@ -354,6 +354,8 @@ router.post('/:token/checkin', async (req, res) => {
       if (guestData.nationality) updateFields.nationality = guestData.nationality;
       if (guestData.documentNumber) updateFields.documentNumber = guestData.documentNumber;
       if (guestData.dateOfBirth) updateFields.birthDate = new Date(guestData.dateOfBirth);
+      if (guestData.passportExpiry) updateFields.passportExpiry = new Date(guestData.passportExpiry);
+      if (guestData.cityOfBirth) updateFields.cityOfBirth = guestData.cityOfBirth;
       if (guestData.language) updateFields.preferredLanguage = guestData.language;
       if (platformConsent !== undefined) updateFields.platformConsent = platformConsent;
       if (platformConsent) updateFields.platformConsentDate = new Date();
@@ -407,6 +409,8 @@ router.post('/:token/checkin', async (req, res) => {
         email: guestData.email,
         phone: guestData.phone,
         birthDate: guestData.dateOfBirth ? new Date(guestData.dateOfBirth) : null,
+        passportExpiry: guestData.passportExpiry ? new Date(guestData.passportExpiry) : null,
+        cityOfBirth: guestData.cityOfBirth || '',
         nationality: guestData.nationality,
         documentNumber: guestData.documentNumber,
         preferredLanguage: guestData.language || 'de',
@@ -458,6 +462,7 @@ router.post('/:token/checkin', async (req, res) => {
 
     // Booking abschließen
     booking.guestId = guestId;
+    booking.guestName = guestData.firstName + ' ' + guestData.lastName;
     booking.checkInCompleted = true;
     booking.checkedInAt = new Date();
     booking.checkinMethod = 'portal';
@@ -471,6 +476,9 @@ router.post('/:token/checkin', async (req, res) => {
       country: guestData.country,
       nationality: guestData.nationality,
       documentNumber: guestData.documentNumber,
+      birthDate: guestData.dateOfBirth || null,
+      passportExpiry: guestData.passportExpiry || null,
+      cityOfBirth: guestData.cityOfBirth || '',
       isBusiness: invoiceRecipient?.type === 'company',
       companyName: invoiceRecipient?.companyName || '',
       companyUid: invoiceRecipient?.vatId || '',

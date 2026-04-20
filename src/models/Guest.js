@@ -35,6 +35,7 @@ const guestSchema = new mongoose.Schema({
   documentNumber:   { type: String },
   documentIssuedAt: { type: Date },
   passportExpiry:   { type: Date },
+  cityOfBirth:      { type: String },
 
   // ── ADRESSE ───────────────────────────────────────────
   address: {
