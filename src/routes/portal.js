@@ -362,6 +362,7 @@ router.post('/:token/checkin', async (req, res) => {
       if (guestData.street) {
         updateFields.address = {
           street: guestData.street,
+          streetNo: guestData.streetNo || '',
           zip: guestData.postalCode,
           city: guestData.city,
           country: guestData.country,
@@ -393,6 +394,7 @@ router.post('/:token/checkin', async (req, res) => {
         preferredLanguage: guestData.language || 'de',
         address: {
           street: guestData.street,
+          streetNo: guestData.streetNo || '',
           zip: guestData.postalCode,
           city: guestData.city,
           country: guestData.country,
@@ -445,6 +447,7 @@ router.post('/:token/checkin', async (req, res) => {
       completed: true,
       completedAt: new Date(),
       street: guestData.street,
+      streetNo: guestData.streetNo || '',
       zip: guestData.postalCode,
       city: guestData.city,
       country: guestData.country,
