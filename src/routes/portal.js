@@ -131,7 +131,7 @@ router.get('/:token', async (req, res) => {
           : null,
         checkInFormCompleted: booking.checkInForm?.completed === true || booking.checkInCompleted === true,
         checkInCompleted: booking.checkInCompleted === true,
-        persons: booking.persons || 1,
+        persons: booking.persons || booking.adults || 1,
         legalPrivacyUrl: settings?.legal?.privacyUrl || null,
         legalImprintUrl: settings?.legal?.imprintUrl || null,
         isTest: booking.isTest === true,
