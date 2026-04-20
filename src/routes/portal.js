@@ -499,6 +499,38 @@ router.post('/:token/checkin', async (req, res) => {
     };
     await booking.save();
 
+    // Companions verarbeiten wenn mitgeschickt
+    if (req.body.companions && Array.isArray(req.body.companions) && req.body.companions.length > 0) {
+      const crypto = require(crypto);
+      const companionDocs = [];
+      for (const comp of req.body.companions) {
+        const dob = comp.dateOfBirth ? new Date(comp.dateOfBirth) : null;
+        const checkInDate = new Date(booking.checkIn);
+        const ageAtCheckin = dob ? Math.floor((checkInDate - dob) / (365.25 * 24 * 60 * 60 * 1000)) : null;
+        const stgCode = crypto.randomBytes(3).toString(hex).toUpperCase();
+        const companion = new Guest({
+          tenantId: TENANT_ID,
+          firstName: comp.firstName,
+          lastName: comp.lastName,
+          birthDate: dob,
+          stayosGuestId: STG- + stgCode,
+          primaryGuestId: guestId,
+          relationship: family_member,
+          isIndependent: false,
+          platformConsent: false,
+          gdprConsent: true,
+          gdprConsentDate: new Date(),
+          tenants: [{ tenantId: TENANT_ID, consent: false, since: new Date() }],
+        });
+        await companion.save();
+        companionDocs.push({ guestId: companion._id, isCityTaxExempt: ageAtCheckin !== null && ageAtCheckin < 14, ageAtCheckin });
+        await guestCol.updateOne({ _id: guestId }, { $push: { companions: { guestId: companion._id, addedAt: new Date(), addedViaBookingId: booking._id } } });
+      }
+      booking.companions = companionDocs;
+      booking.primaryGuestId = guestId;
+      await booking.save();
+    }
+
     // Guest bookings Array aktualisieren
     await guestCol.updateOne({ _id: guestId }, { $addToSet: { bookings: booking._id } });
 
