@@ -353,6 +353,7 @@ router.post('/:token/checkin', async (req, res) => {
       if (guestData.phone) updateFields.phone = guestData.phone;
       if (guestData.nationality) updateFields.nationality = guestData.nationality;
       if (guestData.documentNumber) updateFields.documentNumber = guestData.documentNumber;
+      if (guestData.documentType) updateFields.documentType = guestData.documentType;
       if (guestData.dateOfBirth) updateFields.birthDate = new Date(guestData.dateOfBirth);
       if (guestData.passportExpiry) updateFields.passportExpiry = new Date(guestData.passportExpiry);
       if (guestData.cityOfBirth) updateFields.cityOfBirth = guestData.cityOfBirth;
