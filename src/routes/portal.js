@@ -105,7 +105,7 @@ router.get('/:token', async (req, res) => {
         checkIn: booking.checkIn,
         checkOut: booking.checkOut,
         nights,
-        doorCode: (booking.checkInCompleted || booking.checkInForm?.completed) ? (booking.doorAccess?.stayosCode || booking.doorAccess?.code || null) : null,
+        doorCode: booking.doorAccess?.stayosCode || booking.doorAccess?.code || null,
         status: booking.status,
         roomLockId: booking.doorAccess?.roomLockId || null,
         roomUnlockSupported: true,
