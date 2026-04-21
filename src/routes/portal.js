@@ -99,8 +99,8 @@ router.get('/:token', async (req, res) => {
       success: true,
       data: {
         bookingNumber: booking.bookingNumber,
-        guestName: booking.guestName,
-        guestFirstName,
+        guestName: hasCheckedIn ? booking.guestName : null,
+        guestFirstName: hasCheckedIn ? guestFirstName : null,
         guestEmailIsFake: (function(){ var e = (booking.contactEmail || (guest && guest.email) || "").toLowerCase(); return ["@guest.booking.com","@m.airbnb.com","@airbnb.com","@guest.expedia.com"].some(function(p){ return e.includes(p); }); })(),
         guestEmail: (function(){ var e = booking.contactEmail || (guest && guest.email) || ""; var fake = ["@guest.booking.com","@m.airbnb.com","@airbnb.com","@guest.expedia.com"].some(function(p){ return e.toLowerCase().includes(p); }); return fake ? null : (e || null); })(),
         guestPhone: hasCheckedIn ? (guest?.phone || booking.contactPhone || null) : (booking.contactPhone || null),
