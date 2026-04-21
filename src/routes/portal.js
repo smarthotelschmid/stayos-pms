@@ -231,7 +231,10 @@ router.patch('/:token/checkin-form', async (req, res) => {
       };
       // Remove undefined
       Object.keys(guestUpdate).forEach(k => guestUpdate[k] === undefined && delete guestUpdate[k]);
-      await Guest.updateOne({ _id: booking.guestId, tenantId: TENANT_ID }, { $set: guestUpdate });
+      // Cross-tenant: Guest kann plattformübergreifend sein, raw collection bypassed tenantId plugin
+      const mongoose = require('mongoose');
+      const guestCol = mongoose.connection.db.collection('guests');
+      await guestCol.updateOne({ _id: booking.guestId }, { $set: guestUpdate });
 
       // Company
       if (f.isBusiness && f.companyName) {
@@ -245,7 +248,7 @@ router.patch('/:token/checkin-form', async (req, res) => {
             invoiceEmail: f.companyEmail || undefined,
           });
         }
-        await Guest.updateOne({ _id: booking.guestId, tenantId: TENANT_ID }, { $set: { companyId: company._id, companyName: company.name } });
+        await guestCol.updateOne({ _id: booking.guestId }, { $set: { companyId: company._id, companyName: company.name } });
         await Booking.updateOne({ _id: booking._id }, { $set: { companyId: company._id } });
       }
     }
@@ -518,7 +521,7 @@ router.post('/:token/checkin', async (req, res) => {
           birthDate: dob,
           stayosGuestId: 'STG-' + stgCode,
           primaryGuestId: guestId,
-          relationship: family_member,
+          relationship: 'family_member',
           isIndependent: false,
           platformConsent: false,
           gdprConsent: true,
