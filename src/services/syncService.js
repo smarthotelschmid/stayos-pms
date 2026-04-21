@@ -7,6 +7,18 @@ const Company = require('../models/Company');
 const Room = require('../models/Room');
 const Settings = require('../models/Settings');
 const { transformBeds24Booking, transformBeds24Guest, transformBeds24Company, isEmailFake } = require('./dataTransformer');
+
+// ═══════════════════════════════════════════════════════════════════
+// Portal vs Beds24 Sync-Ownership
+// Portal-Check-in überschreibt Beds24-Daten.
+// Beds24-Sync darf Portal-Writes nicht zurückdrehen.
+// Wenn checkinMethod === 'portal' → diese Felder nicht überschreiben:
+// ═══════════════════════════════════════════════════════════════════
+const PORTAL_OWNED_FIELDS = [
+  'checkInForm', 'invoiceRecipient', 'companions', 'primaryGuestId',
+  'guestId', 'guestName', 'checkinMethod', 'checkedInAt',
+  'checkInCompleted', 'consentData',
+];
 const { getToken, ttlockPost, CLIENT_ID } = require('./ttlockHelper');
 const { timeToUnix, generateCodeIfImminent } = require('./ttlockService');
 const { sendDoorCodeEmail } = require('./doorCodeEmailService');
@@ -155,14 +167,15 @@ async function syncBookings(source = 'cron') {
       if (existing?.manualOverride === true) continue;
 
       const bookingData = transformBeds24Booking(b, ROOM_MAPPING, UNIT_TO_ROOM);
-      // DSGVO: bookedBy = immer der Beds24-Bucher
-      // guestId = nur beim Portal-Check-in gesetzt, Sync darf es nicht überschreiben
+      // bookedBy = immer der Beds24-Bucher
       bookingData.bookedBy = guestId;
       if (!existing?.checkInCompleted) {
-        // Noch nicht eingecheckt → guestId bleibt null
         bookingData.guestId = null;
+      } else if (existing?.checkinMethod === 'portal') {
+        // Portal-Check-in: alle portal-owned Felder aus dem Update entfernen
+        PORTAL_OWNED_FIELDS.forEach(f => delete bookingData[f]);
       } else {
-        // Bereits eingecheckt → guestId NICHT überschreiben (wurde vom Portal gesetzt)
+        // Nicht-Portal-Check-in (z.B. manuell): guestId beibehalten
         delete bookingData.guestId;
       }
       bookingData.companyId = companyId;
