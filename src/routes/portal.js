@@ -480,6 +480,7 @@ router.post('/:token/checkin', async (req, res) => {
     booking.checkInCompleted = true;
     booking.checkedInAt = new Date();
     booking.checkinMethod = 'portal';
+    booking.manualOverride = true; // Sync darf Portal-Check-in nicht überschreiben
     if (req.body.consentData) {
       booking.consentData = {
         ...req.body.consentData,
