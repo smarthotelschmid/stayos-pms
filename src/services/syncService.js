@@ -189,7 +189,6 @@ async function syncBookings(source = 'cron') {
       if (existing?.status === 'deleted') continue;
       if (existing?.manualOverride === true) continue;
       // Portal-Check-in: kompletter Sync-Skip (DSGVO — Portal-Daten dürfen nicht überschrieben werden)
-      if (existing?.checkinMethod === "portal") { console.log("[Sync] SKIP portal:", existing.bookingNumber); continue; }
 
       const bookingData = transformBeds24Booking(b, ROOM_MAPPING, UNIT_TO_ROOM);
       // bookedBy = immer der Beds24-Bucher
