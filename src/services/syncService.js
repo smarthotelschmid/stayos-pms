@@ -155,13 +155,15 @@ async function syncBookings(source = 'cron') {
       if (existing?.manualOverride === true) continue;
 
       const bookingData = transformBeds24Booking(b, ROOM_MAPPING, UNIT_TO_ROOM);
-      // DSGVO: guestId nur bei bereits eingecheckten Buchungen setzen
-      // Bei neuen/offenen Buchungen: bookedBy = Beds24-Gast, guestId wird beim Check-in gesetzt
-      if (existing?.checkInCompleted) {
-        bookingData.guestId = guestId;
-      } else {
-        bookingData.bookedBy = guestId;
+      // DSGVO: bookedBy = immer der Beds24-Bucher
+      // guestId = nur beim Portal-Check-in gesetzt, Sync darf es nicht überschreiben
+      bookingData.bookedBy = guestId;
+      if (!existing?.checkInCompleted) {
+        // Noch nicht eingecheckt → guestId bleibt null
         bookingData.guestId = null;
+      } else {
+        // Bereits eingecheckt → guestId NICHT überschreiben (wurde vom Portal gesetzt)
+        delete bookingData.guestId;
       }
       bookingData.companyId = companyId;
       // doorAccess nicht komplett überschreiben — nur code aktualisieren
