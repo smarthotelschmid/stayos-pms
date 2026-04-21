@@ -165,6 +165,8 @@ async function syncBookings(source = 'cron') {
       const existing = await Booking.findOne({ tenantId: TENANT_ID, beds24BookingId: b.id });
       if (existing?.status === 'deleted') continue;
       if (existing?.manualOverride === true) continue;
+      // Portal-Check-in: kompletter Sync-Skip (DSGVO — Portal-Daten dürfen nicht überschrieben werden)
+      if (existing?.checkinMethod === 'portal') continue;
 
       const bookingData = transformBeds24Booking(b, ROOM_MAPPING, UNIT_TO_ROOM);
       // bookedBy = immer der Beds24-Bucher
@@ -173,7 +175,9 @@ async function syncBookings(source = 'cron') {
         bookingData.guestId = null;
       } else if (existing?.checkinMethod === 'portal') {
         // Portal-Check-in: alle portal-owned Felder aus dem Update entfernen
+        console.log(`[Sync Debug] ${existing.bookingNumber}: checkinMethod=portal, protecting fields. guestId before:`, bookingData.guestId, 'guestName before:', bookingData.guestName);
         PORTAL_OWNED_FIELDS.forEach(f => delete bookingData[f]);
+        console.log(`[Sync Debug] ${existing.bookingNumber}: after delete. guestId:`, bookingData.guestId, 'guestName:', bookingData.guestName);
       } else {
         // Nicht-Portal-Check-in (z.B. manuell): guestId beibehalten
         delete bookingData.guestId;
@@ -186,12 +190,15 @@ async function syncBookings(source = 'cron') {
       delete bookingData.doorAccess;
       const { bookingNumber, ...updateData } = bookingData;
 
+      if (existing?.bookingNumber === 'SCH-3MFPYE') console.log('[Sync Debug] SCH-3MFPYE updateData keys:', Object.keys(updateData), 'guestId:', updateData.guestId, 'guestName:', updateData.guestName);
+
       const result = await Booking.findOneAndUpdate(
         { tenantId: TENANT_ID, beds24BookingId: b.id },
         { $set: updateData, $setOnInsert: { bookingNumber, guestPortalToken: crypto.randomBytes(32).toString('hex'), guestPortalTokenExpiry: new Date(new Date(bookingData.checkOut).getTime() + 24 * 60 * 60 * 1000), 'checkInForm.completed': new Date(bookingData.checkIn) < FLOW_START } },
         { upsert: true, new: true, includeResultMetadata: true }
       );
 
+      if (existing?.bookingNumber === 'SCH-3MFPYE') console.log('[Sync Debug] SCH-3MFPYE after findOneAndUpdate: guestId:', result.value?.guestId, 'guestName:', result.value?.guestName);
       // roomId + roomLockId zuweisen/aktualisieren wenn roomName vorhanden
       const savedBooking = result.value;
       if (savedBooking?.roomName && (!savedBooking.roomId || (existing && existing.roomName !== savedBooking.roomName))) {
