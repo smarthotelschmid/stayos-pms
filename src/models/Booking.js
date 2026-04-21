@@ -74,8 +74,10 @@ const bookingSchema = new mongoose.Schema({
 
   // ── GAST & ZIMMER ─────────────────────────────────────
   
-  // Verweis auf den Gast in der guests Collection
+  // Verweis auf den Gast (erst nach Check-in gesetzt)
   guestId: { type: mongoose.Schema.Types.ObjectId, ref: 'Guest' },
+  // Wer die Buchung getätigt hat (Beds24-Gast, kann vom tatsächlichen Gast abweichen)
+  bookedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Guest', default: null },
   
   // Anzahl der Personen
   adults:   { type: Number, default: 1 },

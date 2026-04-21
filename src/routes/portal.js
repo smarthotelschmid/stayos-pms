@@ -75,7 +75,9 @@ router.get('/:token', async (req, res) => {
     // Portal-Template laden (strukturierte Inhalte: welcomeText, checkInHint, houseRules)
     const EmailTemplate = require('../models/EmailTemplate');
     const Guest = require('../models/Guest');
-    const guest = booking.guestId ? await Guest.findOne({ _id: booking.guestId, tenantId: TENANT_ID }, 'preferredLanguage email phone').lean() : null;
+    const hasCheckedIn = booking.checkInCompleted === true;
+    const guestLookupId = booking.guestId || booking.bookedBy;
+    const guest = guestLookupId ? await Guest.findOne({ _id: guestLookupId, tenantId: TENANT_ID }, 'preferredLanguage email phone firstName lastName').lean() : null;
     const lang = (guest?.preferredLanguage === 'en') ? 'en' : 'de';
     const portalTpl = await EmailTemplate.findOne({ tenantId: TENANT_ID, type: 'portal' }).lean();
     const portalData = portalTpl?.data?.[lang] || portalTpl?.data?.de || {};
@@ -101,7 +103,7 @@ router.get('/:token', async (req, res) => {
         guestFirstName,
         guestEmailIsFake: (function(){ var e = (booking.contactEmail || (guest && guest.email) || "").toLowerCase(); return ["@guest.booking.com","@m.airbnb.com","@airbnb.com","@guest.expedia.com"].some(function(p){ return e.includes(p); }); })(),
         guestEmail: (function(){ var e = booking.contactEmail || (guest && guest.email) || ""; var fake = ["@guest.booking.com","@m.airbnb.com","@airbnb.com","@guest.expedia.com"].some(function(p){ return e.toLowerCase().includes(p); }); return fake ? null : (e || null); })(),
-        guestPhone: (guest && guest.phone) || booking.contactPhone || null,
+        guestPhone: hasCheckedIn ? (guest?.phone || booking.contactPhone || null) : (booking.contactPhone || null),
         roomName: booking.roomName,
         checkIn: booking.checkIn,
         checkOut: booking.checkOut,
