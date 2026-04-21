@@ -146,26 +146,34 @@ async function syncBookings(source = 'cron') {
         // Relay-Email immer in emailRelay speichern (schadet nie)
         if (syncIsRelay && syncEmail) guestData.emailRelay = syncEmail;
 
-        const guestResult = await Guest.findOneAndUpdate(
-          matchQuery,
-          {
-            $set: guestData,
-            $setOnInsert: {
-              ...(syncEmail && !syncIsRelay ? { email: syncEmail, emailIsReal: true, emailIsFake: false } : {}),
-              ...(syncEmail && syncIsRelay ? { emailIsFake: true } : {}),
-            },
-          },
-          { upsert: true, new: true, includeResultMetadata: true }
-        );
-        // Bei bestehenden Guests: echte Email nur setzen wenn Guest noch keine echte hat
-        if (guestResult.lastErrorObject?.updatedExisting && syncEmail && !syncIsRelay) {
-          const gDoc = guestResult.value;
-          if (!gDoc?.emailIsReal) {
-            await Guest.updateOne({ _id: gDoc._id, tenantId: TENANT_ID }, { $set: { email: syncEmail, emailIsReal: true, emailIsFake: false } });
+        // Raw collection bypass: Mongoose findOneAndUpdate setzt Schema-Defaults
+        const guestCol = mongoose.connection.db.collection('guests');
+        const existingGuestDoc = await guestCol.findOne(matchQuery);
+        if (existingGuestDoc) {
+          // Update bestehenden Guest — email NIE überschreiben wenn emailIsReal
+          const guestUpdate = { ...guestData };
+          if (existingGuestDoc.emailIsReal) {
+            delete guestUpdate.email;
+            delete guestUpdate.emailIsFake;
+          } else if (syncEmail && !syncIsRelay) {
+            guestUpdate.email = syncEmail;
+            guestUpdate.emailIsReal = true;
+            guestUpdate.emailIsFake = false;
           }
+          await guestCol.updateOne({ _id: existingGuestDoc._id }, { $set: guestUpdate });
+          guestId = existingGuestDoc._id;
+        } else {
+          // Neuer Guest
+          const newGuest = new Guest({
+            ...guestData,
+            tenantId: TENANT_ID,
+            ...(syncEmail && !syncIsRelay ? { email: syncEmail, emailIsReal: true, emailIsFake: false } : {}),
+            ...(syncEmail && syncIsRelay ? { emailIsFake: true } : {}),
+          });
+          await newGuest.save();
+          guestId = newGuest._id;
+          guestsCreated++;
         }
-        guestId = guestResult.value?._id || guestResult._id;
-        if (!guestResult.lastErrorObject?.updatedExisting) guestsCreated++;
 
         // Link company to guest + directBookingPotential
         if (companyId && guestId) {
