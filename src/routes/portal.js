@@ -356,13 +356,19 @@ router.post('/:token/checkin', async (req, res) => {
     const guestCol = mongoose.connection.db.collection('guests');
 
     // Cross-tenant lookup (Doctolib-Prinzip)
-    const existingGuest = await guestCol.findOne({ email: guestData.email, status: { $ne: 'anonymized' } });
+    const existingGuest = await guestCol.findOne({ email: guestData.email,
+        emailIsReal: true,
+        emailIsRealSince: new Date(),
+        emailIsFake: false, status: { $ne: 'anonymized' } });
     let guestId;
 
     if (existingGuest) {
       // Bestehenden Gast updaten via raw collection (bypassed tenantId plugin)
       // firstName + lastName nie überschreiben bei bestehendem Profil
-      const updateFields = { updatedAt: new Date() };
+      const updateFields = { updatedAt: new Date(), email: guestData.email,
+        emailIsReal: true,
+        emailIsRealSince: new Date(),
+        emailIsFake: false, emailIsReal: true, emailIsRealSince: new Date(), emailIsFake: false };
       if (guestData.phone) updateFields.phone = guestData.phone;
       if (guestData.nationality) updateFields.nationality = guestData.nationality;
       if (guestData.documentNumber) updateFields.documentNumber = guestData.documentNumber;
@@ -421,6 +427,9 @@ router.post('/:token/checkin', async (req, res) => {
         firstName: guestData.firstName,
         lastName: guestData.lastName,
         email: guestData.email,
+        emailIsReal: true,
+        emailIsRealSince: new Date(),
+        emailIsFake: false,
         phone: guestData.phone,
         birthDate: guestData.dateOfBirth ? new Date(guestData.dateOfBirth) : null,
         passportExpiry: guestData.passportExpiry ? new Date(guestData.passportExpiry) : null,

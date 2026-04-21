@@ -15,6 +15,9 @@ const guestSchema = new mongoose.Schema({
   firstName:   { type: String, required: true },
   lastName:    { type: String, required: true },
   email:       { type: String },
+  emailRelay:     { type: String, default: null },
+  emailIsReal:   { type: Boolean, default: false },
+  emailIsRealSince: { type: Date, default: null },
   phone:       { type: String },
   
   // Geburtsdatum — wichtig für Kurtaxe (Kinder unter 14 befreit)

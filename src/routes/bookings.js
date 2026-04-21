@@ -150,8 +150,8 @@ router.get('/', async (req, res) => {
     const skip = (page - 1) * limit;
 
     const bookings = await Booking.find(filter)
-      .populate({ path: 'guestId', match: { tenantId: TENANT_ID }, select: 'firstName lastName email phone' })
-      .populate({ path: 'bookedBy', match: { tenantId: TENANT_ID }, select: 'firstName lastName email phone' })
+      .populate({ path: 'guestId', match: { tenantId: TENANT_ID }, select: 'firstName lastName email emailRelay emailIsReal emailIsFake phone' })
+      .populate({ path: 'bookedBy', match: { tenantId: TENANT_ID }, select: 'firstName lastName email emailRelay emailIsReal emailIsFake phone' })
       .populate({ path: 'roomId', match: { tenantId: TENANT_ID }, select: 'number name type pricePerNight floor maxGuests amenities' })
       .populate({ path: 'companyId', match: { tenantId: TENANT_ID }, select: 'name aliases' })
       .sort({ checkIn: -1 })
@@ -309,8 +309,8 @@ router.get('/:id', async (req, res) => {
   try {
     const booking = await Booking.findOne({ _id: req.params.id, tenantId: TENANT_ID })
       .select('-checkInToken -checkInTokenExpiry')
-      .populate({ path: 'guestId', match: { tenantId: TENANT_ID }, select: 'firstName lastName email phone' })
-      .populate({ path: 'bookedBy', match: { tenantId: TENANT_ID }, select: 'firstName lastName email phone' })
+      .populate({ path: 'guestId', match: { tenantId: TENANT_ID }, select: 'firstName lastName email emailRelay emailIsReal emailIsFake phone' })
+      .populate({ path: 'bookedBy', match: { tenantId: TENANT_ID }, select: 'firstName lastName email emailRelay emailIsReal emailIsFake phone' })
       .populate({ path: 'roomId', match: { tenantId: TENANT_ID }, select: 'number name type pricePerNight floor maxGuests amenities' });
     if (!booking) return res.status(404).json({ success: false, error: 'Buchung nicht gefunden' });
     res.json({ success: true, data: booking });

@@ -137,28 +137,31 @@ async function syncBookings(source = 'cron') {
                 ...(guestData.normNameKey ? [{ normNameKey: guestData.normNameKey }] : []),
               ] };
 
-        // Email-Schutz: separieren, damit emailManualOverride respektiert wird
+        // Email-Split: Relay vs echte Email getrennt behandeln
         const syncEmail = guestData.email;
         const syncEmailIsFake = guestData.emailIsFake;
+        const syncIsRelay = syncEmail && [/@guest.booking.com$/i,/@m.airbnb.com$/i,/@airbnb.com$/i,/@guest.expedia.com$/i].some(p => p.test(syncEmail));
         delete guestData.email;
         delete guestData.emailIsFake;
+        // Relay-Email immer in emailRelay speichern (schadet nie)
+        if (syncIsRelay && syncEmail) guestData.emailRelay = syncEmail;
 
         const guestResult = await Guest.findOneAndUpdate(
           matchQuery,
           {
             $set: guestData,
-            // Email nur setzen wenn emailManualOverride NICHT true ist
-            ...(!syncEmail ? {} : {
-              $setOnInsert: { email: syncEmail, emailIsFake: syncEmailIsFake },
-            }),
+            $setOnInsert: {
+              ...(syncEmail && !syncIsRelay ? { email: syncEmail, emailIsReal: true, emailIsFake: false } : {}),
+              ...(syncEmail && syncIsRelay ? { emailIsFake: true } : {}),
+            },
           },
           { upsert: true, new: true, includeResultMetadata: true }
         );
-        // Bei bestehenden Guests: Email nur updaten wenn kein Override
-        if (guestResult.lastErrorObject?.updatedExisting && syncEmail) {
+        // Bei bestehenden Guests: echte Email nur setzen wenn Guest noch keine echte hat
+        if (guestResult.lastErrorObject?.updatedExisting && syncEmail && !syncIsRelay) {
           const gDoc = guestResult.value;
-          if (!gDoc?.emailManualOverride) {
-            await Guest.updateOne({ _id: gDoc._id, tenantId: TENANT_ID }, { $set: { email: syncEmail, emailIsFake: syncEmailIsFake } });
+          if (!gDoc?.emailIsReal) {
+            await Guest.updateOne({ _id: gDoc._id, tenantId: TENANT_ID }, { $set: { email: syncEmail, emailIsReal: true, emailIsFake: false } });
           }
         }
         guestId = guestResult.value?._id || guestResult._id;
