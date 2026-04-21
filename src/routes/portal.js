@@ -231,7 +231,7 @@ router.patch('/:token/checkin-form', async (req, res) => {
       };
       // Remove undefined
       Object.keys(guestUpdate).forEach(k => guestUpdate[k] === undefined && delete guestUpdate[k]);
-      await Guest.updateOne({ _id: booking.guestId }, { $set: guestUpdate });
+      await Guest.updateOne({ _id: booking.guestId, tenantId: TENANT_ID }, { $set: guestUpdate });
 
       // Company
       if (f.isBusiness && f.companyName) {
@@ -245,7 +245,7 @@ router.patch('/:token/checkin-form', async (req, res) => {
             invoiceEmail: f.companyEmail || undefined,
           });
         }
-        await Guest.updateOne({ _id: booking.guestId }, { $set: { companyId: company._id, companyName: company.name } });
+        await Guest.updateOne({ _id: booking.guestId, tenantId: TENANT_ID }, { $set: { companyId: company._id, companyName: company.name } });
         await Booking.updateOne({ _id: booking._id }, { $set: { companyId: company._id } });
       }
     }
@@ -504,19 +504,19 @@ router.post('/:token/checkin', async (req, res) => {
 
     // Companions verarbeiten wenn mitgeschickt
     if (req.body.companions && Array.isArray(req.body.companions) && req.body.companions.length > 0) {
-      const crypto = require(crypto);
+      const crypto = require('crypto');
       const companionDocs = [];
       for (const comp of req.body.companions) {
         const dob = comp.dateOfBirth ? new Date(comp.dateOfBirth) : null;
         const checkInDate = new Date(booking.checkIn);
         const ageAtCheckin = dob ? Math.floor((checkInDate - dob) / (365.25 * 24 * 60 * 60 * 1000)) : null;
-        const stgCode = crypto.randomBytes(3).toString(hex).toUpperCase();
+        const stgCode = crypto.randomBytes(3).toString('hex').toUpperCase();
         const companion = new Guest({
           tenantId: TENANT_ID,
           firstName: comp.firstName,
           lastName: comp.lastName,
           birthDate: dob,
-          stayosGuestId: STG- + stgCode,
+          stayosGuestId: 'STG-' + stgCode,
           primaryGuestId: guestId,
           relationship: family_member,
           isIndependent: false,
