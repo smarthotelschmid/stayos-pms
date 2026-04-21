@@ -137,18 +137,30 @@ async function syncBookings(source = 'cron') {
                 ...(guestData.normNameKey ? [{ normNameKey: guestData.normNameKey }] : []),
               ] };
 
-        // Don't overwrite email if guest has emailManualOverride
-        const existingGuest = await Guest.findOne(matchQuery).lean();
-        if (existingGuest?.emailManualOverride && guestData.email) {
-          delete guestData.email;
-          delete guestData.emailIsFake;
-        }
+        // Email-Schutz: separieren, damit emailManualOverride respektiert wird
+        const syncEmail = guestData.email;
+        const syncEmailIsFake = guestData.emailIsFake;
+        delete guestData.email;
+        delete guestData.emailIsFake;
 
         const guestResult = await Guest.findOneAndUpdate(
           matchQuery,
-          { $set: guestData },
+          {
+            $set: guestData,
+            // Email nur setzen wenn emailManualOverride NICHT true ist
+            ...(!syncEmail ? {} : {
+              $setOnInsert: { email: syncEmail, emailIsFake: syncEmailIsFake },
+            }),
+          },
           { upsert: true, new: true, includeResultMetadata: true }
         );
+        // Bei bestehenden Guests: Email nur updaten wenn kein Override
+        if (guestResult.lastErrorObject?.updatedExisting && syncEmail) {
+          const gDoc = guestResult.value;
+          if (!gDoc?.emailManualOverride) {
+            await Guest.updateOne({ _id: gDoc._id, tenantId: TENANT_ID }, { $set: { email: syncEmail, emailIsFake: syncEmailIsFake } });
+          }
+        }
         guestId = guestResult.value?._id || guestResult._id;
         if (!guestResult.lastErrorObject?.updatedExisting) guestsCreated++;
 
