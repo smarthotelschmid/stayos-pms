@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const crypto = require('crypto');
 const Booking = require('../models/Booking');
 const Guest = require('../models/Guest');
