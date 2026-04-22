@@ -82,13 +82,13 @@ async function generateCodeForBooking(booking, token) {
   const Booking = require('../models/Booking');
   const IdempotencyKey = require('../models/IdempotencyKey');
 
-  if (!booking.roomLockId) {
+  if (!booking.doorAccess?.roomLockId) {
     console.log(`[TTLock] ${booking.bookingNumber}: kein lockId — übersprungen`);
     return;
   }
 
   const checkInStr = booking.checkIn?.toISOString?.().slice(0, 10) || booking.checkIn;
-  const roomKey = `ttlock-${booking._id}-${booking.roomLockId}-${checkInStr}`;
+  const roomKey = `ttlock-${booking._id}-${booking.doorAccess?.roomLockId}-${checkInStr}`;
   const entranceKey = `ttlock-${booking._id}-3321320-${checkInStr}`;
 
   // Idempotenz-Check
@@ -116,7 +116,7 @@ async function generateCodeForBooking(booking, token) {
   try {
     const res = await ttlockPost('/v3/keyboardPwd/add', {
       clientId: CLIENT_ID, accessToken: token,
-      lockId: booking.roomLockId,
+      lockId: booking.doorAccess?.roomLockId,
       keyboardPwdName: `${booking.bookingNumber}`,
       keyboardPwd: pin,
       startDate: startMs,
@@ -233,7 +233,7 @@ async function cleanupExpiredCodes() {
         try {
           const res = await ttlockPost('/v3/keyboardPwd/delete', {
             clientId: CLIENT_ID, accessToken: token,
-            lockId: booking.roomLockId,
+            lockId: booking.doorAccess?.roomLockId,
             keyboardPwdId: booking.doorAccess.lockKeyboardPwdId,
             deleteType: 2,
           });
