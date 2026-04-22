@@ -165,6 +165,8 @@ async function syncBookings(source = 'cron') {
           guestId = existingGuestDoc._id;
         } else {
           // Neuer Guest
+          if (!guestData.firstName) guestData.firstName = "Gast";
+          if (!guestData.lastName) guestData.lastName = "Unbekannt";
           const newGuest = new Guest({
             ...guestData,
             tenantId: TENANT_ID,
