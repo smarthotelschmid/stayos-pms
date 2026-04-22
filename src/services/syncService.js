@@ -109,6 +109,8 @@ async function syncBookings(source = 'cron') {
       const hasGuestData = b.firstName || b.lastName || b.email || g0?.firstName || g0?.lastName || b.company;
       if (hasGuestData) {
         const guestData = transformBeds24Guest(b);
+        if (!guestData.firstName) guestData.firstName = "Gast";
+        if (!guestData.lastName) guestData.lastName = "Unbekannt";
 
         // For company bookings with individual guests: match by guest ID only
         const isCompanyWithGuest = g0?.id && !b.firstName && !b.lastName;
