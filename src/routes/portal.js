@@ -338,7 +338,7 @@ router.post('/:token/checkin', async (req, res) => {
     }
 
     // Bereits eingecheckt?
-    if (booking.checkInCompleted || booking.checkInForm?.completed) {
+    if (booking.checkInCompleted) {
       return res.json({
         success: true,
         alreadyCompleted: true,
