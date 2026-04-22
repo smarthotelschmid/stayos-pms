@@ -152,7 +152,7 @@ function buildCancellationText(v) {
 async function loadContext(bookingId) {
   const booking = await Booking.findOne({ _id: bookingId, tenantId: TENANT_ID });
   if (!booking) return null;
-  const guest = booking.guestId ? await Guest.findOne({ _id: booking.guestId, tenantId: TENANT_ID }).lean() : null;
+  const guest = (booking.guestId || booking.bookedBy) ? await Guest.findOne({ _id: (booking.guestId || booking.bookedBy), tenantId: TENANT_ID }).lean() : null;
   const settings = await Settings.findOne({ tenantId: TENANT_ID });
   // Property: primär aus booking.propertyId, sonst erste aktive Property des Tenants
   // (damit Direktbuchungen ohne explizite Property-Verknüpfung trotzdem Logo+CI bekommen)
