@@ -159,7 +159,7 @@ async function sendDoorCodeEmail(bookingId, { overrideEmail, forceFormat } = {})
   const guest = booking.guestId ? await Guest.findOne({ _id: booking.guestId, tenantId: TENANT_ID }).lean() : null;
 
   // Empfänger: overrideEmail > contactEmail > Gast-Email > Firmen-Email
-  let to = overrideEmail || booking.contactEmail || guest?.email;
+  let to = overrideEmail || booking.contactEmail || guest?.email || guest?.emailRelay;
   if (!to) {
     if (booking.companyId) {
       const Company = require('../models/Company');

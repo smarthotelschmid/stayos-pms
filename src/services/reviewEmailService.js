@@ -27,7 +27,7 @@ function replaceVars(text, vars) {
 }
 
 async function resolveRecipient(booking, guest) {
-  let to = booking.contactEmail || guest?.email;
+  let to = booking.contactEmail || guest?.email || guest?.emailRelay;
   if (!to && booking.companyId) {
     const company = await Company.findOne({ _id: booking.companyId, tenantId: TENANT_ID }, 'contactEmail').lean();
     to = company?.contactEmail;
