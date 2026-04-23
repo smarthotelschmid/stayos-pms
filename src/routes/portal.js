@@ -13,7 +13,8 @@ function formatPropertyAddress(p) {
   return [line1, line2].filter(Boolean).join('\n');
 }
 
-const TENANT_ID = '507f1f77bcf86cd799439011';
+const { Types } = require('mongoose');
+const TENANT_ID = new Types.ObjectId('507f1f77bcf86cd799439011');
 const ENTRANCE_LOCK_ID = 3321320;
 
 // Rate limiting: max 10 unlocks pro Token pro Tag
@@ -349,6 +350,16 @@ router.post('/:token/checkin', async (req, res) => {
     const { guestData, invoiceRecipient, platformConsent } = req.body;
     if (!guestData?.firstName || !guestData?.lastName || !guestData?.email) {
       return res.status(400).json({ success: false, error: 'Pflichtfelder fehlen' });
+    }
+    const allowedDocTypes = ['passport', 'id_card'];
+    if (!allowedDocTypes.includes(guestData.documentType)) {
+      return res.status(400).json({ success: false, error: 'Ungültiger Dokumenttyp' });
+    }
+    if (guestData.nationality !== 'AT' && !guestData.cityOfBirth) {
+      return res.status(400).json({ success: false, error: 'Geburtsort Pflichtfeld für nicht-AT Gäste' });
+    }
+    if (!guestData.passportExpiry) {
+      return res.status(400).json({ success: false, error: 'Ablaufdatum Pflichtfeld' });
     }
 
     const Guest = require('../models/Guest');
