@@ -15,7 +15,7 @@ const mongoose = require('mongoose');
 const ENTRANCE_LOCK_ID = 3321320;
 
 const SYNC_INTERVAL = 1 * 60 * 1000; // 1 Minute — Webhook zusätzlich, Polling ist primär
-const FLOW_START = new Date('2099-01-01T00:00:00+02:00'); // Check-in Flow deaktiviert // Check-in Flow ab diesem Datum
+const FLOW_START = new Date('2026-04-21T00:00:00+02:00'); // Check-in Flow live seit 21.04.2026
 const TENANT_ID = new mongoose.Types.ObjectId('507f1f77bcf86cd799439011');
 
 // ── Sync-Mutex + Fresh-Age-Filter für Orphan-Check ──
