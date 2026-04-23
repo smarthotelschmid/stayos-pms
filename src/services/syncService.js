@@ -11,11 +11,12 @@ const { getToken, ttlockPost, CLIENT_ID } = require('./ttlockHelper');
 const { timeToUnix, generateCodeIfImminent } = require('./ttlockService');
 const { sendDoorCodeEmail } = require('./doorCodeEmailService');
 const { sendConfirmationEmail, sendCancellationEmail } = require('./bookingEmailService');
+const mongoose = require('mongoose');
 const ENTRANCE_LOCK_ID = 3321320;
 
 const SYNC_INTERVAL = 1 * 60 * 1000; // 1 Minute — Webhook zusätzlich, Polling ist primär
 const FLOW_START = new Date('2099-01-01T00:00:00+02:00'); // Check-in Flow deaktiviert // Check-in Flow ab diesem Datum
-const TENANT_ID = '507f1f77bcf86cd799439011';
+const TENANT_ID = new mongoose.Types.ObjectId('507f1f77bcf86cd799439011');
 
 // ── Sync-Mutex + Fresh-Age-Filter für Orphan-Check ──
 // Verhindert Race Conditions:
