@@ -24,7 +24,6 @@ const { getToken, ttlockPost, CLIENT_ID } = require('./ttlockHelper');
 const { timeToUnix, generateCodeIfImminent } = require('./ttlockService');
 const { sendDoorCodeEmail } = require('./doorCodeEmailService');
 const { sendConfirmationEmail, sendCancellationEmail } = require('./bookingEmailService');
-const mongoose = require('mongoose');
 const ENTRANCE_LOCK_ID = 3321320;
 
 const SYNC_INTERVAL = 1 * 60 * 1000; // 1 Minute — Webhook zusätzlich, Polling ist primär
