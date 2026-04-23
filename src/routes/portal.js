@@ -92,8 +92,9 @@ router.get('/:token', async (req, res) => {
     const co = new Date(booking.checkOut);
     const nights = Math.round((co - ci) / msPerDay);
 
-    // Gastname splitten
-    const nameParts = (booking.guestName || '').trim().split(/\s+/);
+    // Gastname splitten — booking.guestName hat Vorrang, Fallback auf Guest-Profil
+    const resolvedName = booking.guestName || (guest ? [guest.firstName, guest.lastName].filter(Boolean).join(' ') : '') || '';
+    const nameParts = resolvedName.trim().split(/\s+/);
     const guestFirstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : nameParts[0] || '';
 
     res.json({
@@ -101,7 +102,7 @@ router.get('/:token', async (req, res) => {
       data: {
         bookingNumber: booking.bookingNumber,
         guestName: hasCheckedIn ? booking.guestName : null,
-        guestFirstName: hasCheckedIn ? guestFirstName : null,
+        guestFirstName: guestFirstName || null,
         guestEmailIsFake: (function(){ var e = (booking.contactEmail || (guest && guest.email) || "").toLowerCase(); return ["@guest.booking.com","@m.airbnb.com","@airbnb.com","@guest.expedia.com"].some(function(p){ return e.includes(p); }); })(),
         guestEmail: (function(){ var e = booking.contactEmail || (guest && guest.email) || ""; var fake = ["@guest.booking.com","@m.airbnb.com","@airbnb.com","@guest.expedia.com"].some(function(p){ return e.toLowerCase().includes(p); }); return fake ? null : (e || null); })(),
         guestPhone: hasCheckedIn ? (guest?.phone || booking.contactPhone || null) : (booking.contactPhone || null),
