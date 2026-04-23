@@ -1,8 +1,9 @@
 const mongoose = require('mongoose');
 
 const idempotencyKeySchema = new mongoose.Schema({
-  key: { type: String, required: true, unique: true },
-  scope: { type: String },
+  key:      { type: String, required: true, unique: true },
+  tenantId: { type: String },
+  scope:    { type: String },
   createdAt: { type: Date, default: Date.now, expires: 60 * 60 * 24 * 90 },
 });
 
