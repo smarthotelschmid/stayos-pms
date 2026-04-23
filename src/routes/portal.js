@@ -345,6 +345,16 @@ router.post('/:token/checkin', async (req, res) => {
     if (!guestData?.firstName || !guestData?.lastName || !guestData?.email) {
       return res.status(400).json({ success: false, error: 'Pflichtfelder fehlen' });
     }
+    const allowedDocTypes = ['passport', 'id_card'];
+    if (!allowedDocTypes.includes(guestData.documentType)) {
+      return res.status(400).json({ success: false, error: 'Ungültiger Dokumenttyp' });
+    }
+    if (guestData.nationality !== 'AT' && !guestData.cityOfBirth) {
+      return res.status(400).json({ success: false, error: 'Geburtsort Pflichtfeld für nicht-AT Gäste' });
+    }
+    if (!guestData.passportExpiry) {
+      return res.status(400).json({ success: false, error: 'Ablaufdatum Pflichtfeld' });
+    }
 
     const Guest = require('../models/Guest');
     const mongoose = require('mongoose');
