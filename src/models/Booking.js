@@ -247,7 +247,7 @@ const bookingSchema = new mongoose.Schema({
   checkInTokenExpiry: { type: Date },
   checkInCompleted: { type: Boolean, default: false },
   checkedInAt: { type: Date },
-  checkinMethod: { type: String, enum: ['portal', 'manual'], default: null },
+  checkinMethod: { type: String, enum: ['portal', 'manual'], default: 'portal' },
   portalOpenedAt: { type: Date },
   portalOpenCount: { type: Number, default: 0 },
   checkedOutAt: { type: Date },
