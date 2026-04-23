@@ -1,4 +1,5 @@
 const cron = require('node-cron');
+const crypto = require('crypto');
 const { getToken, ttlockPost, CLIENT_ID, TENANT_ID } = require('./ttlockHelper');
 
 // ─── Hilfsfunktionen ──────────────────────────────────────────────────────────
@@ -76,19 +77,67 @@ async function syncLockTime() {
   }
 }
 
+// ─── STAYOS-PIN generieren ────────────────────────────────────────────────────
+
+async function generateStayosPin(booking) {
+  const Booking = require('../models/Booking');
+  const Guest = require('../models/Guest');
+
+  let phone = null;
+  const guestId = (booking.guestId?._id || booking.guestId)?.toString();
+  if (guestId && guestId !== '507f1f77bcf86cd799439011') {
+    const guest = await Guest.findOne({ _id: guestId, tenantId: TENANT_ID }, 'phone mobile').lean();
+    phone = guest?.phone || guest?.mobile;
+  }
+  if (!phone) phone = booking.contactPhone;
+
+  const checkInMs  = new Date(booking.checkIn).getTime();
+  const checkOutMs = new Date(booking.checkOut).getTime();
+  const windowStart = new Date(checkInMs  - 24 * 3600 * 1000);
+  const windowEnd   = new Date(checkOutMs + 24 * 3600 * 1000);
+
+  async function hasCollision(pin) {
+    return Booking.exists({
+      _id:       { $ne: booking._id },
+      tenantId:  TENANT_ID,
+      roomId:    booking.roomId,
+      'doorAccess.stayosCode': pin,
+      checkIn:  { $lt: windowEnd },
+      checkOut: { $gt: windowStart },
+    });
+  }
+
+  // PIN aus letzten 4 Ziffern der Telefonnummer
+  if (phone) {
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length >= 4) {
+      const phonePin = digits.slice(-4);
+      if (!(await hasCollision(phonePin))) return phonePin;
+    }
+  }
+
+  // Zufällig, max 10 Versuche
+  for (let i = 0; i < 10; i++) {
+    const pin = String(crypto.randomInt(1000, 10000));
+    if (!(await hasCollision(pin))) return pin;
+  }
+
+  return String(crypto.randomInt(1000, 10000));
+}
+
 // ─── Code-Generierung für eine Buchung ───────────────────────────────────────
 
 async function generateCodeForBooking(booking, token) {
   const Booking = require('../models/Booking');
   const IdempotencyKey = require('../models/IdempotencyKey');
 
-  if (!booking.doorAccess?.roomLockId) {
+  if (!booking.roomLockId) {
     console.log(`[TTLock] ${booking.bookingNumber}: kein lockId — übersprungen`);
     return;
   }
 
   const checkInStr = booking.checkIn?.toISOString?.().slice(0, 10) || booking.checkIn;
-  const roomKey = `ttlock-${booking._id}-${booking.doorAccess?.roomLockId}-${checkInStr}`;
+  const roomKey = `ttlock-${booking._id}-${booking.roomLockId}-${checkInStr}`;
   const entranceKey = `ttlock-${booking._id}-3321320-${checkInStr}`;
 
   // Idempotenz-Check
@@ -102,32 +151,40 @@ async function generateCodeForBooking(booking, token) {
     throw e;
   }
 
-  const pin = booking.doorAccess?.code;
+  let pin = booking.doorAccess?.stayosCode || booking.doorAccess?.code;
   if (!pin) {
-    console.log(`[TTLock] ${booking.bookingNumber}: kein PIN — übersprungen`);
-    return;
+    pin = await generateStayosPin(booking);
+    await Booking.updateOne(
+      { _id: booking._id },
+      { $set: { 'doorAccess.stayosCode': pin, 'doorAccess.pinGeneratedAt': new Date() } }
+    );
+    booking.doorAccess = booking.doorAccess || {};
+    booking.doorAccess.stayosCode = pin;
   }
 
-  const startMs  = timeToUnix(checkInStr, '15:00');
   const checkOutStr = booking.checkOut?.toISOString?.().slice(0, 10) || booking.checkOut;
+  const checkInAt15 = timeToUnix(checkInStr, '15:00');
+  const nowPlus5    = Date.now() + 5 * 60 * 1000;
+  const startMs     = Math.max(checkInAt15, nowPlus5);
   const endMs    = timeToUnix(checkOutStr, '11:00');
 
   let roomOk = false;
   try {
     const res = await ttlockPost('/v3/keyboardPwd/add', {
       clientId: CLIENT_ID, accessToken: token,
-      lockId: booking.doorAccess?.roomLockId,
+      lockId: booking.roomLockId,
       keyboardPwdName: `${booking.bookingNumber}`,
       keyboardPwd: pin,
       startDate: startMs,
       endDate: endMs,
       addType: 2,
+      date: Date.now(),
     });
     if (!res.errcode) {
       roomOk = true;
       await Booking.findOneAndUpdate(
         { _id: booking._id, tenantId: TENANT_ID },
-        { 'doorAccess.lockKeyboardPwdId': res.keyboardPwdId }
+        { 'doorAccess.roomKeyboardPwdId': res.keyboardPwdId }
       );
       console.log(`[TTLock] ${booking.bookingNumber}: Zimmer-Code gesetzt ✓`);
     } else {
@@ -157,6 +214,7 @@ async function generateCodeForBooking(booking, token) {
       startDate: startMs,
       endDate: endMs,
       addType: 2,
+      date: Date.now(),
     });
     if (!resE.errcode) {
       await Booking.findOneAndUpdate(
@@ -187,7 +245,7 @@ async function generateUpcomingCodes() {
       tenantId: TENANT_ID,
       status: { $in: ['confirmed', 'checked-in'] },
       checkIn: { $gte: today, $lt: dayAfterTomorrow },
-      'doorAccess.lockKeyboardPwdId': { $exists: false },
+      'doorAccess.roomKeyboardPwdId': { $exists: false },
     }).lean();
 
     console.log(`[TTLock Cron] ${bookings.length} Buchungen ohne Code für heute/morgen`);
@@ -217,7 +275,7 @@ async function cleanupExpiredCodes() {
       tenantId: TENANT_ID,
       checkOut: { $lt: today },
       $or: [
-        { 'doorAccess.lockKeyboardPwdId': { $exists: true, $ne: null } },
+        { 'doorAccess.roomKeyboardPwdId': { $exists: true, $ne: null } },
         { 'doorAccess.entranceLockKeyboardPwdId': { $exists: true, $ne: null } },
       ],
     }).lean();
@@ -229,16 +287,16 @@ async function cleanupExpiredCodes() {
       const updates = {};
 
       // Zimmer-Code löschen
-      if (booking.doorAccess?.lockKeyboardPwdId) {
+      if (booking.doorAccess?.roomKeyboardPwdId) {
         try {
           const res = await ttlockPost('/v3/keyboardPwd/delete', {
             clientId: CLIENT_ID, accessToken: token,
-            lockId: booking.doorAccess?.roomLockId,
-            keyboardPwdId: booking.doorAccess.lockKeyboardPwdId,
+            lockId: booking.roomLockId,
+            keyboardPwdId: booking.doorAccess.roomKeyboardPwdId,
             deleteType: 2,
           });
           if (!res.errcode) {
-            updates['doorAccess.lockKeyboardPwdId'] = null;
+            updates['doorAccess.roomKeyboardPwdId'] = null;
             deleted++;
           }
         } catch {}
