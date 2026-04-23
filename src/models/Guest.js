@@ -126,7 +126,7 @@ const guestSchema = new mongoose.Schema({
 // STG-ID generieren wenn nicht vorhanden
 guestSchema.pre('save', function(next) {
   if (!this.stayosGuestId) {
-    this.stayosGuestId = 'STG-' + crypto.randomBytes(3).toString('hex').toUpperCase();
+    this.stayosGuestId = 'STG-' + crypto.randomBytes(4).toString('hex').toUpperCase();
   }
   next();
 });
