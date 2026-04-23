@@ -76,7 +76,8 @@ router.get('/:token', async (req, res) => {
     // Portal-Template laden (strukturierte Inhalte: welcomeText, checkInHint, houseRules)
     const EmailTemplate = require('../models/EmailTemplate');
     const Guest = require('../models/Guest');
-    const guest = booking.guestId ? await Guest.findOne({ _id: booking.guestId, tenantId: TENANT_ID }, 'preferredLanguage email phone firstName lastName').lean() : null;
+    const guestLookupId = booking.guestId || booking.bookedBy;
+    const guest = guestLookupId ? await Guest.findOne({ _id: guestLookupId, tenantId: TENANT_ID }, 'preferredLanguage email phone firstName lastName').lean() : null;
     const lang = (guest?.preferredLanguage === 'en') ? 'en' : 'de';
     const portalTpl = await EmailTemplate.findOne({ tenantId: TENANT_ID, type: 'portal' }).lean();
     const portalData = portalTpl?.data?.[lang] || portalTpl?.data?.de || {};
