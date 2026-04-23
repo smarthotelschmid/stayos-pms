@@ -4,12 +4,12 @@ async function checkVIES(countryCode, vatNumber) {
     const res = await fetch(url);
     if (!res.ok) return null;
     const data = await res.json();
-    if (!data.valid) return null;
+    if (!data.isValid) return null;
     return {
       valid: true,
-      name: data.traderName || null,
-      address: data.traderAddress || null,
-      countryCode: data.countryCode,
+      name: data.name || null,
+      address: data.address || null,
+      countryCode,
       vatNumber: data.vatNumber,
     };
   } catch {
