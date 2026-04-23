@@ -13,7 +13,8 @@ function formatPropertyAddress(p) {
   return [line1, line2].filter(Boolean).join('\n');
 }
 
-const TENANT_ID = '507f1f77bcf86cd799439011';
+const { Types } = require('mongoose');
+const TENANT_ID = new Types.ObjectId('507f1f77bcf86cd799439011');
 const ENTRANCE_LOCK_ID = 3321320;
 
 // Rate limiting: max 10 unlocks pro Token pro Tag
