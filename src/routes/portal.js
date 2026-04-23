@@ -76,7 +76,7 @@ router.get('/:token', async (req, res) => {
     // Portal-Template laden (strukturierte Inhalte: welcomeText, checkInHint, houseRules)
     const EmailTemplate = require('../models/EmailTemplate');
     const Guest = require('../models/Guest');
-    const guest = booking.guestId ? await Guest.findOne({ _id: booking.guestId, tenantId: TENANT_ID }, 'preferredLanguage email phone').lean() : null;
+    const guest = booking.guestId ? await Guest.findOne({ _id: booking.guestId, tenantId: TENANT_ID }, 'preferredLanguage email phone firstName lastName').lean() : null;
     const lang = (guest?.preferredLanguage === 'en') ? 'en' : 'de';
     const portalTpl = await EmailTemplate.findOne({ tenantId: TENANT_ID, type: 'portal' }).lean();
     const portalData = portalTpl?.data?.[lang] || portalTpl?.data?.de || {};
@@ -90,8 +90,9 @@ router.get('/:token', async (req, res) => {
     const co = new Date(booking.checkOut);
     const nights = Math.round((co - ci) / msPerDay);
 
-    // Gastname splitten
-    const nameParts = (booking.guestName || '').trim().split(/\s+/);
+    // Gastname splitten — booking.guestName hat Vorrang, Fallback auf Guest-Profil
+    const resolvedName = booking.guestName || (guest ? [guest.firstName, guest.lastName].filter(Boolean).join(' ') : '') || '';
+    const nameParts = resolvedName.trim().split(/\s+/);
     const guestFirstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : nameParts[0] || '';
 
     res.json({
