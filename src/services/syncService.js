@@ -30,6 +30,11 @@ const SYNC_INTERVAL = 1 * 60 * 1000; // 1 Minute — Webhook zusätzlich, Pollin
 const FLOW_START = new Date('2026-04-21T00:00:00+02:00'); // Check-in Flow live seit 21.04.2026
 const TENANT_ID = new mongoose.Types.ObjectId('507f1f77bcf86cd799439011');
 
+// Felder die der Portal-/Backfill-Flow gesetzt hat und die Beds24 nicht überschreiben darf.
+// Schutz greift wenn: existing[field] != null UND updateData[field] == null.
+// Echter Beds24-Match (non-null) darf weiterhin schreiben.
+const PORTAL_OWNED_FIELDS = ['guestId', 'checkInCompleted', 'checkedInAt', 'checkInForm', 'consentData', 'checkinMethod'];
+
 // ── Sync-Mutex + Fresh-Age-Filter für Orphan-Check ──
 // Verhindert Race Conditions:
 // 1. _isSyncing Lock: nur ein Sync-Run gleichzeitig (Webhook + Cron können
@@ -221,6 +226,14 @@ async function syncBookings(source = 'cron') {
       delete bookingData.doorAccess;
       const { bookingNumber, ...updateData } = bookingData;
 
+      // PORTAL_OWNED_FIELDS: bestehende Non-null-Werte nicht mit null überschreiben
+      if (existing) {
+        for (const field of PORTAL_OWNED_FIELDS) {
+          if (existing[field] != null && updateData[field] == null) {
+            delete updateData[field];
+          }
+        }
+      }
 
       const result = await Booking.findOneAndUpdate(
         { tenantId: TENANT_ID, beds24BookingId: b.id },
