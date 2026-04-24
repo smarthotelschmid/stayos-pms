@@ -27,6 +27,7 @@ const bookingSchema = new mongoose.Schema({
 
   // Beds24 spezifische Felder
   beds24BookingId: { type: Number, index: true },
+  beds24MasterId: { type: Number, default: null }, // null = Master oder Solo-Buchung; gesetzt = Sub-Buchung einer Gruppe
   beds24RoomId: { type: Number },
   beds24UnitId: { type: Number },
   beds24PropertyId: { type: Number },
