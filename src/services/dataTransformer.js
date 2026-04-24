@@ -188,9 +188,18 @@ function transformBeds24Booking(b, roomMapping, unitMapping) {
   };
 }
 
+const TOUR_OPERATOR_EMAIL_PATTERNS = [
+  '@eurofun-touristik',
+  '@eurobike',
+  '@eurofun',
+  '@touristik',
+];
+
 function transformBeds24Guest(b) {
   const g = b.guests?.[0];
-  const isCompany = !!b.company && !b.firstName && !b.lastName;
+  const bookingEmail = (b.email || '').toLowerCase();
+  const isTourOperatorEmail = TOUR_OPERATOR_EMAIL_PATTERNS.some(p => bookingEmail.includes(p));
+  const isCompany = (!!b.company && !b.firstName && !b.lastName) || isTourOperatorEmail;
 
   // For company bookings: guest data comes from guest tab
   // For normal bookings: prefer booking-level name (actual booker), guests[0] may be group organizer
@@ -239,7 +248,11 @@ function transformBeds24Guest(b) {
 function transformBeds24Company(b) {
   if (!b.company) return null;
   const name = decodeHtml(b.company).trim();
-  const isTravel = name.toLowerCase().includes('touristik') || name.toLowerCase().includes('reise') || name.toLowerCase().includes('travel');
+  const bookingEmailLower = (b.email || '').toLowerCase();
+  const isTravel = name.toLowerCase().includes('touristik') ||
+    name.toLowerCase().includes('reise') ||
+    name.toLowerCase().includes('travel') ||
+    TOUR_OPERATOR_EMAIL_PATTERNS.some(p => bookingEmailLower.includes(p));
   return {
     tenantId: '507f1f77bcf86cd799439011',
     name,
