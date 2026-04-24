@@ -139,6 +139,7 @@ function transformBeds24Booking(b, roomMapping, unitMapping) {
   const exactRoom = unitMapping ? unitMapping[`${b.roomId}-${b.unitId}`] : null;
   return {
     beds24BookingId: b.id,
+    beds24MasterId: b.masterId || null,
     beds24RoomId: b.roomId,
     // Beds24 liefert 0 fuer "Pool-Buchung ohne konkrete Unit" — nicht null.
     // `b.unitId ?? null` erhaelt die 0, damit Auto-Assign den Fall erkennt.

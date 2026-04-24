@@ -199,7 +199,12 @@ async function syncBookings(source = 'cron') {
       // bookedBy = immer der Beds24-Bucher
       bookingData.bookedBy = guestId;
       if (!existing?.checkInCompleted) {
-        bookingData.guestId = null;
+        // Preserve guestId wenn bereits gesetzt (Backfill) — sonst Sync-Wert
+        if (existing?.guestId) {
+          delete bookingData.guestId;
+        } else {
+          bookingData.guestId = guestId;
+        }
       } else if (existing?.checkinMethod === 'portal') {
         // Portal-Check-in: alle portal-owned Felder aus dem Update entfernen
         PORTAL_OWNED_FIELDS.forEach(f => delete bookingData[f]);
@@ -208,6 +213,7 @@ async function syncBookings(source = 'cron') {
         delete bookingData.guestId;
       }
       bookingData.companyId = companyId;
+      bookingData.groupId = b.masterId !== null && b.masterId !== undefined ? `GRP-${b.masterId}` : null;
       // doorAccess nicht komplett überschreiben — nur code aktualisieren
       if (bookingData.doorAccess?.code) {
         bookingData['doorAccess.code'] = bookingData.doorAccess.code;
