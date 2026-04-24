@@ -163,6 +163,13 @@ async function syncBookings(source = 'cron') {
             guestUpdate.emailIsReal = true;
             guestUpdate.emailIsFake = false;
           }
+          // Generisch: manuell gepflegte Felder nicht mit null überschreiben
+          const SYNC_OWNED_FIELDS = new Set(['updatedAt', 'syncedAt', 'beds24GuestId', 'normNameKey', 'emailRelay', 'emailIsFake', 'emailIsReal']);
+          for (const [key, val] of Object.entries(guestUpdate)) {
+            if (!SYNC_OWNED_FIELDS.has(key) && existingGuestDoc[key] != null && val == null) {
+              delete guestUpdate[key];
+            }
+          }
           await guestCol.updateOne({ _id: existingGuestDoc._id }, { $set: guestUpdate });
           guestId = existingGuestDoc._id;
         } else {
