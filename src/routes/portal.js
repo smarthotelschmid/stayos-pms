@@ -499,8 +499,9 @@ router.post('/:token/checkin', async (req, res) => {
     }
 
     // Booking abschließen
+    const checkedInGuest = await guestCol.findOne({ _id: guestId }, { firstName: 1, lastName: 1 });
     booking.guestId = guestId;
-    booking.guestName = guestData.firstName + ' ' + guestData.lastName;
+    booking.guestName = `${checkedInGuest?.firstName || guestData.firstName} ${checkedInGuest?.lastName || guestData.lastName}`.trim();
     booking.checkInCompleted = true;
     booking.checkedInAt = new Date();
     booking.checkinMethod = 'portal';
