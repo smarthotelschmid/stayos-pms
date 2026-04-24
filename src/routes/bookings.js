@@ -155,7 +155,7 @@ router.get('/', async (req, res) => {
     const skip = (page - 1) * limit;
 
     const bookings = await Booking.find(filter)
-      .populate({ path: 'guestId', select: 'firstName lastName email emailRelay emailIsReal emailIsFake phone' })
+      .populate({ path: 'guestId', match: { tenantId: TENANT_ID }, select: 'firstName lastName email emailRelay emailIsReal emailIsFake phone' })
       .populate({ path: 'bookedBy', match: { tenantId: TENANT_ID }, select: 'firstName lastName email emailRelay emailIsReal emailIsFake phone' })
       .populate({ path: 'roomId', match: { tenantId: TENANT_ID }, select: 'number name type pricePerNight floor maxGuests amenities' })
       .populate({ path: 'companyId', match: { tenantId: TENANT_ID }, select: 'name aliases' })
@@ -302,7 +302,7 @@ router.get('/search', async (req, res) => {
     const bookings = await Booking.find({
       tenantId: TENANT_ID,
       $or: orConditions
-    }).sort({ checkIn: -1 }).limit(10).populate({ path: 'guestId', select: 'firstName lastName' });
+    }).sort({ checkIn: -1 }).limit(10).populate({ path: 'guestId', match: { tenantId: TENANT_ID }, select: 'firstName lastName' });
     res.json({ success: true, count: bookings.length, data: bookings });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -314,7 +314,7 @@ router.get('/:id', async (req, res) => {
   try {
     const booking = await Booking.findOne({ _id: req.params.id, tenantId: TENANT_ID })
       .select('-checkInToken -checkInTokenExpiry')
-      .populate({ path: 'guestId', select: 'firstName lastName email emailRelay emailIsReal emailIsFake phone' })
+      .populate({ path: 'guestId', match: { tenantId: TENANT_ID }, select: 'firstName lastName email emailRelay emailIsReal emailIsFake phone' })
       .populate({ path: 'bookedBy', match: { tenantId: TENANT_ID }, select: 'firstName lastName email emailRelay emailIsReal emailIsFake phone' })
       .populate({ path: 'roomId', match: { tenantId: TENANT_ID }, select: 'number name type pricePerNight floor maxGuests amenities' });
     if (!booking) return res.status(404).json({ success: false, error: 'Buchung nicht gefunden' });
