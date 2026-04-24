@@ -491,6 +491,9 @@ router.post('/:token/checkin', async (req, res) => {
         viesVerified: company.viesVerified,
         verifiedAt: new Date(),
       };
+      if (guestId) {
+        await Guest.updateOne({ _id: guestId }, { $set: { businessGuest: true, companyName: company.name, companyId: company._id } });
+      }
     } else {
       booking.invoiceRecipient = { type: 'private' };
     }

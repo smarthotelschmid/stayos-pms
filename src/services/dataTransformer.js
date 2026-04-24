@@ -245,6 +245,7 @@ function transformBeds24Company(b) {
     name,
     type: isTravel ? 'travel_agency' : 'corporate',
     contactEmail: b.email || null,
+    contactPhone: b.mobile || b.phone || null,
     address: (() => {
       const { street, streetNo } = splitAddress(b.address);
       return { street, streetNo, city: b.city || null, zip: b.postcode || null, country: b.country2 || b.country || null };
