@@ -29,8 +29,6 @@ const ENTRANCE_LOCK_ID = 3321320;
 const SYNC_INTERVAL = 1 * 60 * 1000; // 1 Minute — Webhook zusätzlich, Polling ist primär
 const FLOW_START = new Date('2026-04-21T00:00:00+02:00'); // Check-in Flow live seit 21.04.2026
 const TENANT_ID = new mongoose.Types.ObjectId('507f1f77bcf86cd799439011');
-// Raw-Collection-Queries brauchen $in weil tenantId in guests als String gespeichert ist
-const TENANT_ID_RAW = { $in: ['507f1f77bcf86cd799439011', new mongoose.Types.ObjectId('507f1f77bcf86cd799439011')] };
 
 // ── Sync-Mutex + Fresh-Age-Filter für Orphan-Check ──
 // Verhindert Race Conditions:
@@ -130,14 +128,14 @@ async function syncBookings(source = 'cron') {
         //   2. email (wenn nicht fake)
         //   3. normNameKey (lowercase + Diakritika gestrippt — Mueller/Müller/muller gleiche Person)
         const matchQuery = isCompanyWithGuest
-          ? { tenantId: TENANT_ID_RAW, beds24GuestId: guestData.beds24GuestId }
+          ? { tenantId: TENANT_ID, beds24GuestId: guestData.beds24GuestId }
           : email && !isFake
-            ? { tenantId: TENANT_ID_RAW, $or: [
+            ? { tenantId: TENANT_ID, $or: [
                 { beds24GuestId: guestData.beds24GuestId },
                 { email },
                 ...(guestData.normNameKey ? [{ normNameKey: guestData.normNameKey }] : []),
               ] }
-            : { tenantId: TENANT_ID_RAW, $or: [
+            : { tenantId: TENANT_ID, $or: [
                 { beds24GuestId: guestData.beds24GuestId },
                 ...(guestData.normNameKey ? [{ normNameKey: guestData.normNameKey }] : []),
               ] };
