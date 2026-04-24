@@ -214,7 +214,6 @@ function transformBeds24Guest(b) {
     : `name-${normName}`;
 
   return {
-    tenantId: '507f1f77bcf86cd799439011',
     firstName,
     lastName,
     guestTitle: b.title || g?.title || null,
