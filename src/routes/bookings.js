@@ -123,10 +123,10 @@ async function deleteCode(booking) {
 }
 
 // ── GET /api/bookings ──────────────────────────────────
-// Query-Parameter: from, to, status, limit, page
+// Query-Parameter: from, to, status, limit, page, includeHistorical
 router.get('/', async (req, res) => {
   try {
-    const { from, to, status, includeDeleted, guestId, limit: limitParam, page: pageParam } = req.query;
+    const { from, to, status, includeDeleted, includeHistorical, guestId, limit: limitParam, page: pageParam } = req.query;
     const filter = { tenantId: TENANT_ID };
 
     // Datum-Filter: from → checkOut >= from, to → checkIn <= to
@@ -142,6 +142,11 @@ router.get('/', async (req, res) => {
     // Gelöschte Buchungen standardmäßig ausblenden
     if (includeDeleted !== 'true' && !status) {
       filter.status = { ...filter.status, $ne: 'deleted' };
+    }
+
+    // CSV-Import-Buchungen standardmäßig ausblenden (?includeHistorical=true zum Einblenden)
+    if (includeHistorical !== 'true') {
+      filter.isCsvImport = { $ne: true };
     }
 
     // Pagination
