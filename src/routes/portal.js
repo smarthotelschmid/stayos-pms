@@ -77,6 +77,12 @@ router.get('/:token', async (req, res) => {
     const EmailTemplate = require('../models/EmailTemplate');
     const Guest = require('../models/Guest');
     const hasCheckedIn = booking.checkInCompleted === true;
+    const isPlaceholderProfile =
+      booking.beds24MasterId != null &&
+      booking.guestId != null &&
+      booking.bookedBy != null &&
+      String(booking.guestId) === String(booking.bookedBy) &&
+      booking.checkInCompleted !== true;
     const guestLookupId = booking.guestId || booking.bookedBy;
     const guest = guestLookupId ? await Guest.findOne({ _id: guestLookupId, tenantId: TENANT_ID }, 'preferredLanguage email phone firstName lastName').lean() : null;
     const lang = (guest?.preferredLanguage === 'en') ? 'en' : 'de';
