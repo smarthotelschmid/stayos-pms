@@ -367,20 +367,29 @@ router.post('/:token/checkin', async (req, res) => {
     const mongoose = require('mongoose');
     const guestCol = mongoose.connection.db.collection('guests');
 
-    // Cross-tenant lookup (Doctolib-Prinzip)
-    const existingGuest = await guestCol.findOne({ email: guestData.email,
-        emailIsReal: true,
-        emailIsRealSince: new Date(),
-        emailIsFake: false, status: { $ne: 'anonymized' } });
+    // Same-tenant lookup per Email
+    let existingGuest = null;
+    if (guestData.email && guestData.email.trim()) {
+      existingGuest = await guestCol.findOne({
+        email: guestData.email.trim().toLowerCase(),
+        tenantId: TENANT_ID,
+        status: { $ne: 'anonymized' }
+      });
+    }
+    // TODO Phase 2: Cross-tenant lookup mit platformConsent + Magic-Link
+    // TODO eigene Session: phoneNormalized als zweiter Lookup-Schlüssel
     let guestId;
 
     if (existingGuest) {
       // Bestehenden Gast updaten via raw collection (bypassed tenantId plugin)
       // firstName + lastName nie überschreiben bei bestehendem Profil
-      const updateFields = { updatedAt: new Date(), email: guestData.email,
+      const updateFields = {
+        updatedAt: new Date(),
+        email: guestData.email,
         emailIsReal: true,
         emailIsRealSince: new Date(),
-        emailIsFake: false, emailIsReal: true, emailIsRealSince: new Date(), emailIsFake: false };
+        emailIsFake: false
+      };
       if (guestData.phone) updateFields.phone = guestData.phone;
       if (guestData.nationality) updateFields.nationality = guestData.nationality;
       if (guestData.documentNumber) updateFields.documentNumber = guestData.documentNumber;
