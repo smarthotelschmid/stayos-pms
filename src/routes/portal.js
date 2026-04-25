@@ -108,10 +108,10 @@ router.get('/:token', async (req, res) => {
       data: {
         bookingNumber: booking.bookingNumber,
         guestName: hasCheckedIn ? booking.guestName : null,
-        guestFirstName: guestFirstName || null,
+        guestFirstName: isPlaceholderProfile ? null : (guestFirstName || null),
         guestEmailIsFake: (function(){ var e = (booking.contactEmail || (guest && guest.email) || "").toLowerCase(); return ["@guest.booking.com","@m.airbnb.com","@airbnb.com","@guest.expedia.com"].some(function(p){ return e.includes(p); }); })(),
-        guestEmail: (function(){ var e = booking.contactEmail || (guest && guest.email) || ""; var fake = ["@guest.booking.com","@m.airbnb.com","@airbnb.com","@guest.expedia.com"].some(function(p){ return e.toLowerCase().includes(p); }); return fake ? null : (e || null); })(),
-        guestPhone: hasCheckedIn ? (guest?.phone || booking.contactPhone || null) : (booking.contactPhone || null),
+        guestEmail: isPlaceholderProfile ? null : (function(){ var e = booking.contactEmail || (guest && guest.email) || ""; var fake = ["@guest.booking.com","@m.airbnb.com","@airbnb.com","@guest.expedia.com"].some(function(p){ return e.toLowerCase().includes(p); }); return fake ? null : (e || null); })(),
+        guestPhone: isPlaceholderProfile ? null : (hasCheckedIn ? (guest?.phone || booking.contactPhone || null) : (booking.contactPhone || null)),
         roomName: booking.roomName,
         checkIn: booking.checkIn,
         checkOut: booking.checkOut,
@@ -146,6 +146,7 @@ router.get('/:token', async (req, res) => {
         legalPrivacyUrl: settings?.legal?.privacyUrl || null,
         legalImprintUrl: settings?.legal?.imprintUrl || null,
         isTest: booking.isTest === true,
+        isPlaceholderProfile: isPlaceholderProfile,
       },
     });
   } catch (err) {
