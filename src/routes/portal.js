@@ -63,6 +63,104 @@ router.get('/:token', async (req, res) => {
       return res.json({ success: false, error: 'expired' });
     }
 
+    // ── MASTER-BUCHUNG ERKENNUNG (Hybrid-Logik) ──────────────────────────────
+    // Primär: Beds24-Master (OTA-Gruppen wie Cosic)
+    const isBeds24Master = booking.beds24MasterId == null
+                        && booking.beds24BookingId != null
+                        && (await Booking.exists({
+                             tenantId: booking.tenantId,
+                             beds24MasterId: booking.beds24BookingId,
+                           }));
+
+    // Fallback: Direktbuchungs-Gruppen ohne Beds24
+    const isSpecMaster = !!booking.groupId
+                      && booking.bookedBy != null
+                      && booking.guestId != null
+                      && String(booking.bookedBy) === String(booking.guestId)
+                      && (await Booking.exists({
+                           tenantId: TENANT_ID,
+                           groupId: booking.groupId,
+                           _id: { $ne: booking._id },
+                         }));
+
+    const isMasterBooking = isBeds24Master || isSpecMaster;
+
+    if (isMasterBooking) {
+      const Guest = require('../models/Guest');
+
+      // Master-Gast laden
+      const masterGuestId = booking.guestId || booking.bookedBy;
+      const masterGuest = masterGuestId
+        ? await Guest.findOne({ _id: masterGuestId, tenantId: TENANT_ID }, 'firstName lastName').lean()
+        : null;
+
+      // Sub-Buchungen laden
+      let subDocs;
+      if (isBeds24Master) {
+        subDocs = await Booking.find({
+          tenantId: TENANT_ID,
+          beds24MasterId: booking.beds24BookingId,
+        }).lean();
+      } else {
+        subDocs = await Booking.find({
+          tenantId: TENANT_ID,
+          groupId: booking.groupId,
+          _id: { $ne: booking._id },
+        }).lean();
+      }
+
+      // Pro Sub-Buchung Guest laden
+      const subBookings = await Promise.all(
+        subDocs.map(async (sub) => {
+          const subGuest = sub.guestId
+            ? await Guest.findOne({ _id: sub.guestId, tenantId: TENANT_ID }, 'email phone firstName lastName').lean()
+            : null;
+
+          return {
+            bookingId: sub._id.toString(),
+            bookingCode: sub.bookingNumber,
+            portalToken: sub.guestPortalToken,
+            roomNumber: sub.roomName ?? null,
+            roomType: sub.roomType ?? null,
+            checkIn: sub.checkIn,
+            checkOut: sub.checkOut,
+            guestCount: sub.persons ?? (sub.adults || 0) + (sub.children || 0) || 1,
+            guest: {
+              guestId: subGuest?._id?.toString() ?? null,
+              email: subGuest?.email ?? null,
+              phone: subGuest?.phone ?? null,
+              firstName: subGuest?.firstName ?? null,
+              lastName: subGuest?.lastName ?? null,
+            },
+            isOwnerRoom: sub.bookedBy != null && sub.guestId != null
+                         && String(sub.bookedBy) === String(sub.guestId),
+            checkInCompleted: sub.checkInCompleted ?? false,
+            lastInviteSentAt: sub.lastInviteSentAt ?? null,
+            lastInviteVia: sub.lastInviteVia ?? null,
+          };
+        })
+      );
+
+      // Sortieren nach roomNumber (roomName) numerisch-fähig
+      subBookings.sort((a, b) =>
+        (a.roomNumber ?? '').localeCompare(b.roomNumber ?? '', undefined, { numeric: true })
+      );
+
+      return res.json({
+        success: true,
+        data: {
+          isMasterBooking: true,
+          bookerSleepsAtHotel: booking.bookerSleepsAtHotel ?? null,
+          masterGuest: {
+            firstName: masterGuest?.firstName ?? null,
+            lastName: masterGuest?.lastName ?? null,
+          },
+          subBookings,
+        },
+      });
+    }
+    // ── ENDE MASTER-BUCHUNG ──────────────────────────────────────────────────
+
     const settings = await Settings.findOne(
       { tenantId: TENANT_ID },
       'hotelName hotelStreet hotelStreetNo hotelZip hotelCity hotelCountry hotelPhone hotelEmail hotelWebsite whatsapp receptionHours houseRules checkInTime checkOutTime googleMapsUrl portalConfig logoUrl'
@@ -799,6 +897,257 @@ router.get('/:token/magic/:magicToken', async (req, res) => {
   } catch (err) {
     console.error('[Portal MagicLink Verify]', err.message);
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// PATCH /api/portal/:masterToken/master/sub/:subBookingCode — Sub-Gast Email/Phone setzen und Einladung versenden
+router.patch('/:masterToken/master/sub/:subBookingCode', async (req, res) => {
+  try {
+    const Guest = require('../models/Guest');
+    const { masterToken, subBookingCode } = req.params;
+    const { email, phone, send } = req.body;
+
+    // 1. Master-Buchung per Token laden
+    const booking = await Booking.findOne({ tenantId: TENANT_ID, guestPortalToken: masterToken });
+    if (!booking) return res.status(404).json({ error: 'not_found' });
+
+    // 2. Prüfen ob Master-Buchung (Beds24-Pfad)
+    const isBeds24Master = booking.beds24MasterId == null
+                        && booking.beds24BookingId != null
+                        && (await Booking.exists({
+                             tenantId: TENANT_ID,
+                             beds24MasterId: booking.beds24BookingId,
+                           }));
+    if (!isBeds24Master) return res.status(403).json({ error: 'not_master' });
+
+    // 3. Sub-Buchung laden — Beds24-Pfad zuerst, dann groupId-Fallback
+    let sub = await Booking.findOne({
+      tenantId: TENANT_ID,
+      beds24MasterId: booking.beds24BookingId,
+      bookingNumber: subBookingCode,
+    });
+    if (!sub && booking.groupId) {
+      sub = await Booking.findOne({
+        tenantId: TENANT_ID,
+        groupId: booking.groupId,
+        bookingNumber: subBookingCode,
+      });
+    }
+    if (!sub) return res.status(404).json({ error: 'sub_not_found' });
+
+    // 4. Email-Uniqueness prüfen (nur wenn email im Body)
+    if (email !== undefined) {
+      // Alle anderen Sub-Buchungen der Gruppe laden (gleicher Pfad wie oben)
+      let otherSubs;
+      if (isBeds24Master) {
+        otherSubs = await Booking.find({
+          tenantId: TENANT_ID,
+          beds24MasterId: booking.beds24BookingId,
+          _id: { $ne: sub._id },
+        }).lean();
+      } else {
+        otherSubs = await Booking.find({
+          tenantId: TENANT_ID,
+          groupId: booking.groupId,
+          _id: { $ne: sub._id },
+        }).lean();
+      }
+
+      // GuestIds der anderen Subs (nicht null, nicht die aktuelle Sub)
+      const otherGuestIds = otherSubs
+        .map(s => s.guestId)
+        .filter(id => id != null);
+      // Fix K1: Master-guestId einschließen (S3B-Lücke schließen)
+      if (booking.guestId && (!sub.guestId || String(booking.guestId) !== String(sub.guestId))) {
+        otherGuestIds.push(booking.guestId);
+      }
+
+      if (otherGuestIds.length > 0) {
+        const conflictGuest = await Guest.findOne({
+          tenantId: TENANT_ID,
+          email: email,
+          _id: { $in: otherGuestIds },
+          status: { $ne: 'anonymized' },
+        }).lean();
+
+        if (conflictGuest) {
+          // conflictingBookingCode aus otherSubs ermitteln
+          const conflictSub = otherSubs.find(s => s.guestId && String(s.guestId) === String(conflictGuest._id));
+          return res.status(409).json({
+            error: 'email_already_assigned',
+            conflictingBookingCode: conflictSub?.bookingNumber ?? null,
+          });
+        }
+      }
+    }
+
+    // 5. Sub-Guest anlegen oder laden
+    let guest;
+    if (sub.guestId) {
+      guest = await Guest.findById(sub.guestId);
+    }
+    if (!guest) {
+      guest = new Guest({ tenantId: TENANT_ID, firstName: '', lastName: '', status: 'active' });
+      await guest.save();
+      sub.guestId = guest._id;
+      await sub.save();
+    }
+
+    // Email und/oder Phone setzen wenn im Body
+    if (email !== undefined) guest.email = email;
+    if (phone !== undefined) guest.phone = phone;
+
+    // 6. Idempotenz-Schutz (nur wenn send im Body)
+    if (send) {
+      if (sub.lastInviteSentAt) {
+        const elapsed = Date.now() - new Date(sub.lastInviteSentAt).getTime();
+        if (elapsed < 60_000) {
+          return res.status(429).json({
+            error: 'too_soon',
+            retryAfterSeconds: Math.ceil((60_000 - elapsed) / 1000),
+          });
+        }
+      }
+    }
+
+    // 7. Versand
+    if (send) {
+      const language = send.language || 'de';
+
+      if (send.channel === 'email') {
+        // Email muss vorhanden sein (aus Body oder schon gesetzt)
+        const toEmail = guest.email;
+        if (!toEmail) {
+          return res.status(400).json({ error: 'email_required_for_email_channel' });
+        }
+
+        // Master-Gast laden für bookerName
+        const masterGuestId = booking.guestId || booking.bookedBy;
+        const masterGuest = masterGuestId
+          ? await Guest.findOne({ _id: masterGuestId, tenantId: TENANT_ID }, 'firstName').lean()
+          : null;
+        const bookerName = masterGuest?.firstName || 'Dein Gastgeber';
+
+        const { sendInvite } = require('../services/subPortalInviteEmailService');
+        await sendInvite({
+          toEmail,
+          language,
+          subPortalToken: sub.guestPortalToken,
+          bookerName,
+          tenantId: TENANT_ID,
+        });
+
+        sub.lastInviteSentAt = new Date();
+        sub.lastInviteVia = 'email';
+
+      } else if (send.channel === 'whatsapp') {
+        // Kein Backend-Versand — nur Timestamp setzen
+        sub.lastInviteSentAt = new Date();
+        sub.lastInviteVia = 'whatsapp';
+      }
+    }
+
+    // 8. Speichern
+    await sub.save();
+    await guest.save();
+
+    // 9. Response 200
+    return res.json({
+      bookingId: sub._id.toString(),
+      bookingCode: sub.bookingNumber,
+      portalToken: sub.guestPortalToken,
+      roomNumber: sub.roomName ?? null,
+      guest: {
+        guestId: guest._id.toString(),
+        email: guest.email ?? null,
+        phone: guest.phone ?? null,
+        firstName: guest.firstName ?? null,
+        lastName: guest.lastName ?? null,
+      },
+      isOwnerRoom: sub.bookedBy != null && sub.guestId != null
+                   && String(sub.bookedBy) === String(sub.guestId),
+      checkInCompleted: sub.checkInCompleted ?? false,
+      lastInviteSentAt: sub.lastInviteSentAt ?? null,
+      lastInviteVia: sub.lastInviteVia ?? null,
+    });
+  } catch (err) {
+    console.error('[Portal Sub PATCH]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/portal/:masterToken/master/sleeps-at-hotel — Booker-Schlaf-Status setzen + Cosic-Cleanup
+router.post('/:masterToken/master/sleeps-at-hotel', async (req, res) => {
+  try {
+    const { masterToken } = req.params;
+    const { bookerSleepsAtHotel, ownSubBookingCode } = req.body;
+
+    // 1. Master-Buchung per Token laden
+    const booking = await Booking.findOne({ tenantId: TENANT_ID, guestPortalToken: masterToken });
+    if (!booking) return res.status(404).json({ error: 'not_found' });
+
+    // 2. Master-Check (isBeds24Master)
+    const isBeds24Master = booking.beds24MasterId == null
+                        && booking.beds24BookingId != null
+                        && (await Booking.exists({
+                             tenantId: TENANT_ID,
+                             beds24MasterId: booking.beds24BookingId,
+                           }));
+    if (!isBeds24Master) return res.status(403).json({ error: 'not_master' });
+
+    // 3. bookerSleepsAtHotel validieren
+    if (typeof bookerSleepsAtHotel !== 'boolean') {
+      return res.status(400).json({ error: 'invalid_input' });
+    }
+    // Fix K2: ownSubBookingCode ist bei bookerSleepsAtHotel=false nicht erlaubt
+    if (bookerSleepsAtHotel === false && ownSubBookingCode != null) {
+      return res.status(400).json({ error: 'ownSubBookingCode_not_allowed_when_not_sleeping' });
+    }
+
+    // 4. Alle Sub-Buchungen laden
+    const subs = await Booking.find({ tenantId: TENANT_ID, beds24MasterId: booking.beds24BookingId });
+
+    // 5. + 6. Cosic-Datenrest aufräumen und ggf. ownSub setzen
+    let ownSub = null;
+    if (bookerSleepsAtHotel === true && ownSubBookingCode) {
+      ownSub = subs.find(s => s.bookingNumber === ownSubBookingCode);
+      if (!ownSub) return res.status(400).json({ error: 'invalid_sub_booking_code' });
+    }
+
+    let cleanedUp = 0;
+    for (const sub of subs) {
+      // Schritt 5: Subs wo bookedBy === master.bookedBy auf null setzen — AUSSER ownSub
+      if (
+        booking.bookedBy != null &&
+        sub.bookedBy != null &&
+        String(sub.bookedBy) === String(booking.bookedBy)
+      ) {
+        if (ownSub && String(sub._id) === String(ownSub._id)) {
+          // Schritt 6: ownSub bekommt master.bookedBy als guestId
+          ownSub.guestId = booking.bookedBy;
+        } else {
+          sub.guestId = null;
+          cleanedUp++;
+        }
+      }
+    }
+
+    // 7. Speichern
+    booking.bookerSleepsAtHotel = bookerSleepsAtHotel;
+    await booking.save();
+    for (const sub of subs) {
+      await sub.save();
+    }
+
+    // 8. Response
+    return res.status(200).json({
+      bookerSleepsAtHotel: booking.bookerSleepsAtHotel,
+      ownSubBookingCode: ownSubBookingCode ?? null,
+      cleanedUp,
+    });
+  } catch (err) {
+    console.error('[Portal sleeps-at-hotel]', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 

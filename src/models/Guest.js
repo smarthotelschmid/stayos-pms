@@ -124,6 +124,9 @@ const guestSchema = new mongoose.Schema({
   marketingConsent: { type: Boolean, default: false },
   consentDate:      { type: Date },
 
+  // ── STATUS ────────────────────────────────────────────
+  status: { type: String, enum: ['active', 'anonymized'], default: 'active', index: true },
+
 }, { timestamps: true });
 
 // STG-ID generieren wenn nicht vorhanden

@@ -292,6 +292,11 @@ const bookingSchema = new mongoose.Schema({
   earlyCheckIn: { type: String },
   lateCheckOut: { type: String },
 
+  // ── MASTER-BUCHUNG / GRUPPEN-EINLADUNG ───────────────
+  bookerSleepsAtHotel: { type: Boolean, default: null },
+  lastInviteSentAt: { type: Date, default: null },
+  lastInviteVia: { type: String, enum: ['email', 'whatsapp', null], default: null },
+
 // timestamps fügt createdAt und updatedAt automatisch hinzu
 }, { timestamps: true });
 
