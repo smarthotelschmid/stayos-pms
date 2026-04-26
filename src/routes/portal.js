@@ -1115,6 +1115,7 @@ router.post('/:masterToken/master/sleeps-at-hotel', async (req, res) => {
     }
 
     let cleanedUp = 0;
+    const subUpdates = []; // { _id, guestId } für updateOne-Calls
     for (const sub of subs) {
       // Schritt 5: Subs wo bookedBy === master.bookedBy auf null setzen — AUSSER ownSub
       if (
@@ -1125,18 +1126,20 @@ router.post('/:masterToken/master/sleeps-at-hotel', async (req, res) => {
         if (ownSub && String(sub._id) === String(ownSub._id)) {
           // Schritt 6: ownSub bekommt master.bookedBy als guestId
           ownSub.guestId = booking.bookedBy;
+          subUpdates.push({ _id: sub._id, guestId: booking.bookedBy });
         } else {
           sub.guestId = null;
+          subUpdates.push({ _id: sub._id, guestId: null });
           cleanedUp++;
         }
       }
     }
 
-    // 7. Speichern
+    // 7. Speichern (updateOne statt save() — vermeidet Mongoose-Vollvalidierung bei importierten Buchungen)
     booking.bookerSleepsAtHotel = bookerSleepsAtHotel;
-    await booking.save();
-    for (const sub of subs) {
-      await sub.save();
+    await Booking.updateOne({ _id: booking._id }, { $set: { bookerSleepsAtHotel: booking.bookerSleepsAtHotel } });
+    for (const upd of subUpdates) {
+      await Booking.updateOne({ _id: upd._id }, { $set: { guestId: upd.guestId } });
     }
 
     // 8. Response
