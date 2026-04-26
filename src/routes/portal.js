@@ -88,6 +88,16 @@ router.get('/:token', async (req, res) => {
     if (isMasterBooking) {
       const Guest = require('../models/Guest');
 
+      // F3-Fix: hotelName für Master-Response laden
+      const masterSettings = await Settings.findOne(
+        { tenantId: TENANT_ID },
+        'hotelName'
+      ).lean();
+      const masterProperty = booking.propertyId
+        ? await Property.findOne({ _id: booking.propertyId, tenantId: TENANT_ID }, 'name').lean()
+        : null;
+      const hotelName = masterProperty?.name || masterSettings?.hotelName || '';
+
       // Master-Gast laden
       const masterGuestId = booking.guestId || booking.bookedBy;
       const masterGuest = masterGuestId
@@ -150,6 +160,7 @@ router.get('/:token', async (req, res) => {
         success: true,
         data: {
           isMasterBooking: true,
+          hotelName,
           bookerSleepsAtHotel: booking.bookerSleepsAtHotel ?? null,
           masterGuest: {
             firstName: masterGuest?.firstName ?? null,
