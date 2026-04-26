@@ -766,6 +766,7 @@ router.get('/:token/magic/:magicToken', async (req, res) => {
       guestData: {
         firstName: guest.firstName,
         lastName: guest.lastName,
+        email: guest.email || null,
         dateOfBirth: guest.birthDate,
         nationality: guest.nationality,
         documentNumber: guest.documentNumber,
