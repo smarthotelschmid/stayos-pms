@@ -658,4 +658,134 @@ router.post('/:token/checkin-companions', async (req, res) => {
   }
 });
 
+// ─── Magic Link Flow ──────────────────────────────────────────────────────────
+
+function maskEmail(email) {
+  const [local, domain] = email.split('@');
+  return local.charAt(0) + '***@' + domain;
+}
+
+// POST /api/portal/:token/request-magic-link — Magic Link per Email anfordern
+router.post('/:token/request-magic-link', async (req, res) => {
+  try {
+    const booking = await Booking.findOne({ tenantId: TENANT_ID, guestPortalToken: req.params.token });
+    if (!booking) return res.json({ success: false, error: 'not_found' });
+
+    // Booking-Status prüfen: nicht cancelled/deleted, nicht expired
+    if (['cancelled', 'deleted'].includes(booking.status)) {
+      return res.json({ success: false, error: 'cancelled' });
+    }
+    const checkOutDate = new Date(booking.checkOut);
+    checkOutDate.setHours(checkOutDate.getHours() + 24);
+    if (new Date() > checkOutDate) {
+      return res.json({ success: false, error: 'expired' });
+    }
+
+    const { email } = req.body;
+    if (!email || !email.trim()) {
+      return res.status(400).json({ success: false, error: 'email fehlt' });
+    }
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Same-tenant Guest-Lookup
+    const mongoose = require('mongoose');
+    const guestCol = mongoose.connection.db.collection('guests');
+    const guest = await guestCol.findOne({
+      email: normalizedEmail,
+      tenantId: TENANT_ID,
+      status: { $ne: 'anonymized' },
+    });
+
+    if (!guest) {
+      return res.json({ success: true, sent: false });
+    }
+
+    // MagicToken erstellen (32 Bytes random hex, expiresAt = now + 30 Min)
+    const crypto = require('crypto');
+    const MagicToken = require('../models/MagicToken');
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+    await MagicToken.create({
+      token,
+      guestId: guest._id,
+      bookingId: booking._id,
+      tenantId: TENANT_ID,
+      expiresAt,
+    });
+
+    const { sendMagicLinkEmail } = require('../services/magicLinkEmailService');
+    const Settings = require('../models/Settings');
+    const settings = await Settings.findOne({ tenantId: TENANT_ID }, 'hotelName').lean();
+    await sendMagicLinkEmail({
+      tenantId: TENANT_ID,
+      guestId: guest._id,
+      bookingToken: booking.guestPortalToken,
+      magicToken: token,
+      hotelName: settings?.hotelName || '',
+      lang: booking.communication?.language || guest.preferredLanguage || 'de',
+    });
+
+    return res.json({ success: true, sent: true, maskedEmail: maskEmail(normalizedEmail) });
+  } catch (err) {
+    console.error('[Portal MagicLink Request]', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/portal/:token/magic/:magicToken — Magic Token einlösen, Gast-Daten zurückgeben
+router.get('/:token/magic/:magicToken', async (req, res) => {
+  try {
+    const booking = await Booking.findOne({ tenantId: TENANT_ID, guestPortalToken: req.params.token });
+    if (!booking) return res.json({ success: false, error: 'not_found' });
+
+    const MagicToken = require('../models/MagicToken');
+    const magicTokenDoc = await MagicToken.findOne({
+      token: req.params.magicToken,
+      bookingId: booking._id,
+      tenantId: TENANT_ID,
+    });
+
+    // Prüfungen: existiert, nicht expired, nicht bereits verwendet
+    if (
+      !magicTokenDoc ||
+      magicTokenDoc.expiresAt <= new Date() ||
+      magicTokenDoc.usedAt !== null
+    ) {
+      return res.status(410).json({ success: false, error: 'magic_token_invalid' });
+    }
+
+    // Gast-Profil laden
+    const mongoose = require('mongoose');
+    const guestCol = mongoose.connection.db.collection('guests');
+    const guest = await guestCol.findOne({ _id: magicTokenDoc.guestId });
+    if (!guest) {
+      return res.status(410).json({ success: false, error: 'magic_token_invalid' });
+    }
+
+    return res.json({
+      success: true,
+      guestData: {
+        firstName: guest.firstName,
+        lastName: guest.lastName,
+        dateOfBirth: guest.birthDate,
+        nationality: guest.nationality,
+        documentNumber: guest.documentNumber,
+        documentType: guest.documentType || 'id_card',
+        passportExpiry: guest.passportExpiry,
+        phone: guest.phone,
+        street: guest.address?.street || '',
+        streetNo: guest.address?.streetNo || '',
+        postalCode: guest.address?.zip || '',
+        city: guest.address?.city || '',
+        country: guest.address?.country || '',
+        cityOfBirth: guest.cityOfBirth || '',
+        language: guest.preferredLanguage || 'de',
+      },
+    });
+  } catch (err) {
+    console.error('[Portal MagicLink Verify]', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;
