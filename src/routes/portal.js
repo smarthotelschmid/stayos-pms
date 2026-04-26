@@ -355,7 +355,7 @@ router.post('/:token/checkin', async (req, res) => {
       });
     }
 
-    const { guestData, invoiceRecipient, platformConsent } = req.body;
+    const { guestData, invoiceRecipient, platformConsent, magicToken } = req.body;
     if (!guestData?.firstName || !guestData?.lastName || !guestData?.email) {
       return res.status(400).json({ success: false, error: 'Pflichtfelder fehlen' });
     }
@@ -383,8 +383,22 @@ router.post('/:token/checkin', async (req, res) => {
         status: { $ne: 'anonymized' }
       });
     }
-    // TODO Phase 2: Cross-tenant lookup mit platformConsent + Magic-Link
     // TODO eigene Session: phoneNormalized als zweiter Lookup-Schlüssel
+
+    // Stück 2: existingGuest ohne Magic Token → 403 block (S3B-Schutz)
+    if (existingGuest && !magicToken) {
+      return res.status(403).json({ success: false, error: 'magic_link_required' });
+    }
+    // Stück 2: existingGuest mit Magic Token → verifizieren + usedAt setzen
+    if (existingGuest && magicToken) {
+      const MagicToken = require('../models/MagicToken');
+      const mtDoc = await MagicToken.findOne({ token: magicToken, bookingId: booking._id, tenantId: TENANT_ID });
+      if (!mtDoc || mtDoc.expiresAt < new Date() || mtDoc.usedAt != null) {
+        return res.status(410).json({ success: false, error: 'magic_token_invalid' });
+      }
+      await MagicToken.updateOne({ _id: mtDoc._id }, { $set: { usedAt: new Date() } });
+    }
+
     let guestId;
 
     if (existingGuest) {
