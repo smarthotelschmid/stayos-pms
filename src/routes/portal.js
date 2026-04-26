@@ -124,7 +124,7 @@ router.get('/:token', async (req, res) => {
             roomType: sub.roomType ?? null,
             checkIn: sub.checkIn,
             checkOut: sub.checkOut,
-            guestCount: sub.persons ?? (sub.adults || 0) + (sub.children || 0) || 1,
+            guestCount: (sub.persons ?? ((sub.adults || 0) + (sub.children || 0))) || 1,
             guest: {
               guestId: subGuest?._id?.toString() ?? null,
               email: subGuest?.email ?? null,
