@@ -32,14 +32,14 @@ async function sendMagicLinkEmail({ tenantId, guestId, bookingToken, magicToken,
     { _id: guestId },
     { projection: { firstName: 1, email: 1 } }
   );
-  if (!guest || !guest.email) return;
+  if (!guest || !guest.email) throw new Error('magicLinkEmail: Guest not found: ' + guestId);
 
   // 2. Settings laden (SMTP, hotelName-Fallback)
   const settings = await Settings.findOne(
     { tenantId },
     'smtp hotelName googleMapsUrl hotelPhone hotelAddress address logoUrl'
   ).lean();
-  if (!settings?.smtp?.host) return;
+  if (!settings?.smtp?.host) throw new Error('magicLinkEmail: SMTP not configured for tenant');
 
   const resolvedHotelName = hotelName || settings.hotelName || '';
 

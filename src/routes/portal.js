@@ -714,7 +714,6 @@ router.post('/:token/request-magic-link', async (req, res) => {
     });
 
     const { sendMagicLinkEmail } = require('../services/magicLinkEmailService');
-    const Settings = require('../models/Settings');
     const settings = await Settings.findOne({ tenantId: TENANT_ID }, 'hotelName').lean();
     await sendMagicLinkEmail({
       tenantId: TENANT_ID,

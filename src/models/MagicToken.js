@@ -12,6 +12,5 @@ const magicTokenSchema = new mongoose.Schema({
 
 // TTL-Index: Dokument wird automatisch aus DB gelöscht wenn expiresAt abgelaufen
 magicTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-magicTokenSchema.index({ token: 1 }, { unique: true });
 
 module.exports = mongoose.model('MagicToken', magicTokenSchema);
