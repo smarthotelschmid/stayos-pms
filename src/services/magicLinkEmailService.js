@@ -48,7 +48,10 @@ async function sendMagicLinkEmail({ tenantId, guestId, bookingToken, magicToken,
   const L = LABELS[resolvedLang];
 
   // 4. Magic-Link-URL aufbauen
-  const frontendUrl = process.env.FRONTEND_URL || 'https://portal.smarthotel-schmid.at';
+  const frontendUrl = process.env.FRONTEND_URL;
+  if (!frontendUrl) {
+    throw new Error('FRONTEND_URL environment variable is required for magic link emails');
+  }
   const magicLinkUrl = `${frontendUrl}/portal/${bookingToken}?magic=${magicToken}`;
 
   const firstName = guest.firstName || '';
